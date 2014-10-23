@@ -263,11 +263,11 @@ parsesrv(char *cmd) {
     trim(par);
     if(!strcmp("PONG", cmd))
         return;
-    if(!strcmp("PRIVMSG", cmd))
+    if(!strcmp("PRIVMSG", cmd)) {
         pout(par, "<%s> %s", usr, txt);
-    else if(!strcmp("PING", cmd))
+    } else if(!strcmp("PING", cmd)) {
         sout("PONG %s", txt);
-    else {
+    } else {
         if (strcmp(cmd, "JOIN") == 0) {
             if (channel[0] == '\0' && !strcmp(usr, nick)) {
                 char prompt[128];
@@ -424,25 +424,44 @@ initialize_readline () {
 
     /* remove '@&' from defaults */
     rl_completer_word_break_characters = " \t\n\"\\'`$><=;|{(";
-    rl_callback_handler_install("> ", (rl_vcpfunc_t*) &readline_nonblocking_cb);
+    rl_callback_handler_install("", (rl_vcpfunc_t*) &readline_nonblocking_cb);
+    if (rl_bind_key(RETURN, handle_return_cb)) {
+        eprint("failed to bind RETURN key");
+    }
     init_nicks();
+}
+
+int
+handle_return_cb() {
+    char* line = NULL;
+
+    line = rl_copy_text(0, rl_end);
+    line = stripwhite(line);
+    rl_replace_line("", 1);
+    rl_redisplay();
+
+    parsein(line);
+
+    if (strcmp(line, "") != 0) {
+        add_history(line);
+    } else {
+        rl_crlf();
+    }
+    free(line);
+
+    rl_done = 1;
+    return 0;
 }
 
 void
 readline_nonblocking_cb(char* line) {
+    /* This is a false callback. The real action is in handle_return_cb(). */
     if (NULL==line) {
         eprint("ircl: broken pipe\n");
         return;
     }
-
-    line = stripwhite(line);
-    if(strlen(line) > 0 && *line) {
-       add_history(line);
-    }
-    
-
-    parsein(line);
     free(line);
+    return;
 }
 
 char **

@@ -23,5 +23,6 @@ char *username_generator PARAMS((const char *, int));
 char *nick_generator PARAMS((const char *, int));
 char **ircl_completion PARAMS((const char *, int, int));
 void readline_nonblocking_cb(char* line);
+int handle_return_cb();
 
 const char* usernames[] = { "replace", "with", "config", "file", "test", NULL};
