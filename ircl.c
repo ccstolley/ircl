@@ -174,7 +174,7 @@ parsein(char *s) {
             printf("Current channel: %s\n", channel);
             return;
         case 'h':
-            printf(
+            pout("",
                  "a - AWAY <msg>\n"
                  "c - show current channel\n"
                  "h - help\n"
@@ -182,11 +182,19 @@ parsein(char *s) {
                  "l - PART <channel>\n"
                  "m - PRIVMSG <msg>\n"
                  "s - SWITCH <channel>\n"
-                 "w - WHO <names>\n"
+                 "w - WHO [<channel>]\n"
+                 "W - WHO *\n"
                  );
             return;
-        case 'w':
+        case 'W':
             sout("WHO *");
+            return;
+        case 'w':
+            if (channel[0] != '\0') {
+                sout("WHO %s", channel);
+            } else {
+                pout("", "No channel to send to");
+            }
             return;
         }
 
@@ -267,8 +275,10 @@ parsesrv(char *cmd) {
                 snprintf(prompt, sizeof(prompt), "%s> ", channel);
                 rl_set_prompt(prompt);
             }
+            pout(usr, "> joined %s", txt);
             insert_nick(usr);
         } else if (strcmp(cmd, "QUIT") == 0) {
+            pout(usr, "> left %s", txt);
             remove_nick(usr);
         } else if (strcmp(cmd, "MODE") == 0) {
             /* eat it */
@@ -306,7 +316,7 @@ main(int argc, char *argv[]) {
             if(++i < argc) password = argv[i];
             break;
         case 'v':
-            eprint("ircl-"VERSION);
+            eprint("ircl-"VERSION"\n");
         default:
             eprint("usage: ircl [-h host] [-p port] [-n nick] [-k keyword] [-v]\n");
         }
