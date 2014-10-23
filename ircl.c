@@ -242,6 +242,12 @@ parsesrv(char *cmd) {
 		sout("PONG %s", txt);
 	else {
         if (strcmp(cmd, "JOIN") == 0) {
+            if (channel[0] == '\0' && !strcmp(usr, nick)) {
+                char prompt[128];
+    		    strlcpy(channel, txt, sizeof channel);
+                snprintf(prompt, sizeof(prompt), "%s> ", channel);
+                rl_set_prompt(prompt);
+            }
             insert_nick(usr);
         } else if (strcmp(cmd, "QUIT") == 0) {
             remove_nick(usr);
