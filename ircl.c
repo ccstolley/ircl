@@ -141,7 +141,7 @@ sout(char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(bufout, sizeof bufout, fmt, ap);
     va_end(ap);
-//    fprintf(stdout, "\nSRV: '%s'<END>\n", bufout);
+/*    fprintf(stdout, "\nSRV: '%s'<END>\n", bufout);*/
     fprintf(srv, "%s\r\n", bufout);
 }
 
@@ -151,6 +151,7 @@ privmsg(char *channel, char *msg) {
         pout("", "No channel to send to");
         return;
     }
+    insert_nick(channel);
     pout(channel, "<%s> %s", nick, msg);
     sout("PRIVMSG %s :%s", channel, msg);
 }
@@ -373,7 +374,7 @@ insert_nick(const char *nick) {
         if (activenicks[i] == NULL) {
             next_available = i;
         } else if (strcasecmp(activenicks[i], nick) == 0) {
-            // duplicate found, so skip
+            /* duplicate found, so skip */
             return 0;
         }   
     }
@@ -444,12 +445,8 @@ handle_return_cb() {
 
     if (strcmp(line, "") != 0) {
         add_history(line);
-    } else {
-        rl_crlf();
     }
     free(line);
-
-    rl_done = 1;
     return 0;
 }
 
@@ -460,8 +457,10 @@ readline_nonblocking_cb(char* line) {
         eprint("ircl: broken pipe\n");
         return;
     }
+    if (strcmp(line, "") == 0) {
+        rl_crlf();
+    }
     free(line);
-    return;
 }
 
 char **
