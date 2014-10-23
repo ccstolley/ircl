@@ -168,7 +168,29 @@ parsein(char *s) {
 		return;
 	}
 	c = *++s;
-	if(c != '\0' && isspace(s[1])) {
+    if (c != '\0' && strlen(s) == 1) {
+		switch(c) {
+        case 'c':
+            printf("Current channel: %s\n", channel);
+            return;
+		case 'h':
+			printf(
+                 "a - AWAY <msg>\n"
+                 "c - show current channel\n"
+                 "h - help\n"
+                 "j - JOIN <channel>\n"
+                 "l - PART <channel>\n"
+                 "m - PRIVMSG <msg>\n"
+                 "s - SWITCH <channel>\n"
+                 "w - WHO <names>\n"
+                 );
+			return;
+		case 'w':
+			sout("WHO *");
+			return;
+        }
+
+    } else if(c != '\0' && isspace(s[1])) {
 		p = s + 2;
 		switch(c) {
 		case 'j':
@@ -177,15 +199,12 @@ parsein(char *s) {
             snprintf(prompt, sizeof(prompt), "%s> ", channel);
             rl_set_prompt(prompt);
 			return;
-		case 'w':
-			sout("WHO %s", p);
-			return;
-        case 'c':
-            printf("Current channel: %s\n", channel);
-            return;
         case 'a':
 			sout("AWAY %s", p);
             return;
+		case 'w':
+			sout("WHO %s", p);
+			return;
 		case 'l':
 			s = eat(p, isspace, 1);
 			p = eat(s, isspace, 0);
@@ -244,7 +263,7 @@ parsesrv(char *cmd) {
         if (strcmp(cmd, "JOIN") == 0) {
             if (channel[0] == '\0' && !strcmp(usr, nick)) {
                 char prompt[128];
-    		    strlcpy(channel, txt, sizeof channel);
+                strlcpy(channel, txt, sizeof channel);
                 snprintf(prompt, sizeof(prompt), "%s> ", channel);
                 rl_set_prompt(prompt);
             }
