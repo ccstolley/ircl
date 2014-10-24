@@ -98,7 +98,7 @@ logmsg(const char *msg, const int len) {
 
 static void
 pout(char *channel, char *fmt, ...) {
-    static char timestr[18];
+    static char timestr[32];
     static char logbuf[4096];
     time_t t;
     va_list ap;
@@ -111,7 +111,7 @@ pout(char *channel, char *fmt, ...) {
         saved_point = rl_point;
         saved_line = rl_copy_text(0, rl_end);
         rl_save_prompt();
-        rl_replace_line("", 0);
+        rl_clear_message();
         rl_redisplay();
     }
 
@@ -120,13 +120,13 @@ pout(char *channel, char *fmt, ...) {
     va_end(ap);
     t = time(NULL);
 
+
     strftime(timestr, sizeof timestr, "%R", localtime(&t));
     if (strcmp(channel, default_channel) == 0) {
         fprintf(stdout, "%s : %s\n", timestr, bufout);
     } else {
         fprintf(stdout, "%s : %s %s\n", timestr, channel, bufout);
     }
-
 
     strftime(timestr, sizeof timestr, "%D %T", localtime(&t));
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel, bufout);
@@ -179,16 +179,17 @@ parsein(char *s) {
     if (c != '\0' && strlen(s) == 1) {
         switch(c) {
         case 'c':
-            printf("Current channel: %s\n", default_channel);
+            pout("Current channel: %s\n", default_channel);
             return;
         case 'h':
-            pout("",
+            pout("", "Commands:\n"
                  "a - AWAY <msg>\n"
                  "c - show current channel\n"
                  "h - help\n"
                  "j - JOIN <channel>\n"
                  "l - PART <channel>\n"
                  "m - PRIVMSG <msg>\n"
+                 "p - ACTION <msg>\n"
                  "s - SWITCH <channel>\n"
                  "w - WHO [<channel>]\n"
                  "W - WHO *\n"
@@ -274,6 +275,7 @@ parsesrv(char *cmd) {
     par = skip(cmd, ' ');
     txt = skip(par, ':');
     trim(par);
+
     if(!strcmp("PONG", cmd))
         return;
     if(!strcmp("PRIVMSG", cmd)) {
@@ -305,6 +307,17 @@ parsesrv(char *cmd) {
         } else if (strcmp(cmd, "001") == 0) {
             /* welcome message, make sure correct nick is stored. */
             strlcpy(nick, par, sizeof nick);
+        } else if (strcmp(cmd, "353") == 0) {
+            char *client = strtok(txt, " ");
+            /* welcome message, make sure correct nick is stored. */
+            while (client) {
+                if (client[0] == '@') {
+                    /* remove @ from operators */
+                    client++;
+                }
+                insert_nick(client);
+                client = strtok(NULL, " ");
+            }
         } else {
             pout(usr, ">< %s (%s): %s", cmd, par, txt);
             if(!strcmp("NICK", cmd) && !strcmp(usr, nick))
@@ -451,6 +464,7 @@ initialize_readline () {
     if (rl_bind_key(RETURN, handle_return_cb)) {
         eprint("failed to bind RETURN key");
     }
+    rl_set_prompt("> ");
     init_nicks();
 }
 
@@ -468,7 +482,6 @@ handle_return_cb() {
     if (strcmp(line, "") != 0) {
         add_history(line);
     }
-    free(line);
     return 0;
 }
 
