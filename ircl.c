@@ -6,7 +6,7 @@ static char *password;
 static char nick[32];
 static char bufin[4096];
 static char bufout[4096];
-static char channel[256];
+static char default_channel[256];
 static time_t trespond;
 static FILE *srv;
 static char *activenicks[MAX_NICKS];
@@ -119,9 +119,16 @@ pout(char *channel, char *fmt, ...) {
     vsnprintf(bufout, sizeof bufout, fmt, ap);
     va_end(ap);
     t = time(NULL);
-    strftime(timestr, sizeof timestr, "%D %R", localtime(&t));
 
-    fprintf(stdout, "%s : %s %s\n", timestr, channel, bufout);
+    strftime(timestr, sizeof timestr, "%R", localtime(&t));
+    if (strcmp(channel, default_channel) == 0) {
+        fprintf(stdout, "%s : %s\n", timestr, bufout);
+    } else {
+        fprintf(stdout, "%s : %s %s\n", timestr, channel, bufout);
+    }
+
+
+    strftime(timestr, sizeof timestr, "%D %T", localtime(&t));
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel, bufout);
     logmsg(logbuf, len);
 
@@ -165,14 +172,14 @@ parsein(char *s) {
         return;
     skip(s, '\n');
     if(s[0] != '/') {
-        privmsg(channel, s);
+        privmsg(default_channel, s);
         return;
     }
     c = *++s;
     if (c != '\0' && strlen(s) == 1) {
         switch(c) {
         case 'c':
-            printf("Current channel: %s\n", channel);
+            printf("Current channel: %s\n", default_channel);
             return;
         case 'h':
             pout("",
@@ -191,8 +198,8 @@ parsein(char *s) {
             sout("WHO *");
             return;
         case 'w':
-            if (channel[0] != '\0') {
-                sout("WHO %s", channel);
+            if (default_channel[0] != '\0') {
+                sout("WHO %s", default_channel);
             } else {
                 pout("", "No channel to send to");
             }
@@ -204,27 +211,31 @@ parsein(char *s) {
         switch(c) {
         case 'j':
             sout("JOIN %s", p);
-            strlcpy(channel, p, sizeof channel);
-            snprintf(prompt, sizeof(prompt), "%s> ", channel);
+            strlcpy(default_channel, p, sizeof default_channel);
+            snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
+
             rl_set_prompt(prompt);
             return;
-        case 'a':
+        case 'g':
             sout("AWAY %s", p);
             return;
         case 'w':
             sout("WHO %s", p);
             return;
+        case 'a':
+            sout("PRIVMSG %s ACTION %s", default_channel, p);
+            return;
         case 'l':
             s = eat(p, isspace, 1);
             p = eat(s, isspace, 0);
             if(!*s)
-                s = channel;
+                s = default_channel;
             if(*p)
                 *p++ = '\0';
             if(!*p)
                 p = "Peace.";
             sout("PART %s :%s", s, p);
-            snprintf(prompt, sizeof(prompt), "%s> ", channel);
+            snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
             rl_set_prompt(prompt);
             return;
         case 'm':
@@ -235,8 +246,8 @@ parsein(char *s) {
             privmsg(s, p);
             return;
         case 's':
-            strlcpy(channel, p, sizeof channel);
-            snprintf(prompt, sizeof(prompt), "%s> ", channel);
+            strlcpy(default_channel, p, sizeof default_channel);
+            snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
             rl_set_prompt(prompt);
             return;
         }
@@ -265,15 +276,22 @@ parsesrv(char *cmd) {
     if(!strcmp("PONG", cmd))
         return;
     if(!strcmp("PRIVMSG", cmd)) {
-        pout(par, "<%s> %s", usr, txt);
+        if (strncmp(txt, "\1ACTION ", 8) == 0) {
+            /* action */
+            txt += 8;
+            pout(par, "* %s %s", usr, txt);
+        } else {
+            pout(par, "<%s> %s", usr, txt);
+        }
+        insert_nick(usr);
     } else if(!strcmp("PING", cmd)) {
         sout("PONG %s", txt);
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
-            if (channel[0] == '\0' && !strcmp(usr, nick)) {
+            if (default_channel[0] == '\0' && !strcmp(usr, nick)) {
                 char prompt[128];
-                strlcpy(channel, txt, sizeof channel);
-                snprintf(prompt, sizeof(prompt), "%s> ", channel);
+                strlcpy(default_channel, txt, sizeof default_channel);
+                snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
                 rl_set_prompt(prompt);
             }
             pout(usr, "> joined %s", txt);
