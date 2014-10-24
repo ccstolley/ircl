@@ -216,14 +216,15 @@ parsein(char *s) {
 
             rl_set_prompt(prompt);
             return;
-        case 'g':
+        case 'a':
             sout("AWAY %s", p);
             return;
         case 'w':
             sout("WHO %s", p);
             return;
-        case 'a':
-            sout("PRIVMSG %s ACTION %s", default_channel, p);
+        case 'p':
+            sout("PRIVMSG %s \1ACTION %s", default_channel, p);
+            pout(default_channel, "* %s %s", nick, p);
             return;
         case 'l':
             s = eat(p, isspace, 1);
@@ -301,6 +302,9 @@ parsesrv(char *cmd) {
             remove_nick(usr);
         } else if (strcmp(cmd, "MODE") == 0) {
             /* eat it */
+        } else if (strcmp(cmd, "001") == 0) {
+            /* welcome message, make sure correct nick is stored. */
+            strlcpy(nick, par, sizeof nick);
         } else {
             pout(usr, ">< %s (%s): %s", cmd, par, txt);
             if(!strcmp("NICK", cmd) && !strcmp(usr, nick))
