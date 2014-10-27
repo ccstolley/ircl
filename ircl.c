@@ -111,6 +111,7 @@ pout(char *channel, char *fmt, ...) {
         saved_point = rl_point;
         saved_line = rl_copy_text(0, rl_end);
         rl_save_prompt();
+        rl_replace_line("", 1);
         rl_clear_message();
         rl_redisplay();
     }
@@ -307,6 +308,16 @@ parsesrv(char *cmd) {
         } else if (strcmp(cmd, "001") == 0) {
             /* welcome message, make sure correct nick is stored. */
             strlcpy(nick, par, sizeof nick);
+        } else if (strcmp(cmd, "352") == 0) {
+            /* who response */
+            char *name  = strtok(par, " ");
+            char *state;
+            int i = 0;
+            for (i=0; i< 5; i++) {
+                name = strtok(NULL, " ");
+            }
+            state = strtok(NULL, " ");
+            pout(usr, "%s %s", name, state);
         } else if (strcmp(cmd, "353") == 0) {
             char *client = strtok(txt, " ");
             /* welcome message, make sure correct nick is stored. */
