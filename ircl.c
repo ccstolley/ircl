@@ -126,7 +126,7 @@ pout(char *channel, char *fmt, ...) {
     if (strcmp(channel, default_channel) == 0) {
         fprintf(stdout, "%s : %s\n", timestr, bufout);
     } else {
-        fprintf(stdout, "%s : %s %s\n", timestr, channel, bufout);
+        fprintf(stdout, "%s : " COLOR_CHANNEL "%s" COLOR_RESET " %s\n", timestr, channel, bufout);
     }
 
     strftime(timestr, sizeof timestr, "%D %T", localtime(&t));
@@ -160,7 +160,7 @@ privmsg(char *channel, char *msg) {
         return;
     }
     insert_nick(channel);
-    pout(channel, "<%s> %s", nick, msg);
+    pout(channel, "<" COLOR_OUTGOING "%s" COLOR_RESET"> %s", nick, msg);
     sout("PRIVMSG %s :%s", channel, msg);
 }
 
@@ -214,7 +214,7 @@ parsein(char *s) {
         case 'j':
             sout("JOIN %s", p);
             strlcpy(default_channel, p, sizeof default_channel);
-            snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
+            snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
 
             rl_set_prompt(prompt);
             return;
@@ -238,7 +238,7 @@ parsein(char *s) {
             if(!*p)
                 p = "Peace.";
             sout("PART %s :%s", s, p);
-            snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
+            snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
             rl_set_prompt(prompt);
             return;
         case 'm':
@@ -250,7 +250,7 @@ parsein(char *s) {
             return;
         case 's':
             strlcpy(default_channel, p, sizeof default_channel);
-            snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
+            snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
             rl_set_prompt(prompt);
             return;
         }
@@ -283,9 +283,9 @@ parsesrv(char *cmd) {
         if (strncmp(txt, "\1ACTION ", 8) == 0) {
             /* action */
             txt += 8;
-            pout(par, "* %s %s", usr, txt);
+            pout(par, "* " COLOR_INCOMING "%s" COLOR_RESET " %s", usr, txt);
         } else {
-            pout(par, "<%s> %s", usr, txt);
+            pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
         }
         insert_nick(usr);
     } else if(!strcmp("PING", cmd)) {
@@ -295,7 +295,7 @@ parsesrv(char *cmd) {
             if (default_channel[0] == '\0' && !strcmp(usr, nick)) {
                 char prompt[128];
                 strlcpy(default_channel, txt, sizeof default_channel);
-                snprintf(prompt, sizeof(prompt), "%s> ", default_channel);
+                snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
                 rl_set_prompt(prompt);
             }
             pout(usr, "> joined %s", txt);
@@ -488,11 +488,12 @@ handle_return_cb() {
     rl_replace_line("", 1);
     rl_redisplay();
 
-    parsein(line);
 
-    if (strcmp(line, "") != 0) {
+    if (line && *line) {
         add_history(line);
     }
+
+    parsein(line);
     return 0;
 }
 

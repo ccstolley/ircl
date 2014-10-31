@@ -5,7 +5,7 @@ INCS = -I. -I/usr/include
 LIBS = -L/usr/lib -lc
 
 CPPFLAGS = -DVERSION=\"${VERSION}\"
-CFLAGS = -std=c99 -pedantic -Wall -Wextra ${INCS} ${CPPFLAGS} -g
+CFLAGS = -fstack-protector-all -fbounds-check -std=c99 -pedantic -Wall -Wextra ${INCS} ${CPPFLAGS} -g
 LDFLAGS = ${LIBS}
 CC = cc
 
