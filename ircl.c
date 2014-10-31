@@ -318,6 +318,10 @@ parsesrv(char *cmd) {
         } else if (strcmp(cmd, "QUIT") == 0) {
             pout(usr, "> left %s", txt);
             remove_nick(usr);
+        } else if (strcmp(cmd, "NICK") == 0) {
+            pout(usr, "> is now known as " COLOR_CHANNEL "%s" COLOR_RESET, txt);
+            remove_nick(usr);
+            insert_nick(txt);
         } else if (strcmp(cmd, "MODE") == 0) {
             /* eat it */
         } else if (strcmp(cmd, "001") == 0) {
