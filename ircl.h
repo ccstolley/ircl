@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#define MAX_NICKS 256
+#define MAX_NICKS 1024
 #define COLOR_RESET "\033[00m"
 #define COLOR_OUTGOING "\033[01;33m"
 #define COLOR_INCOMING "\033[01;32m"
