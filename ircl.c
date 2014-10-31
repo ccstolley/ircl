@@ -143,6 +143,16 @@ pout(char *channel, char *fmt, ...) {
 }
 
 static void
+update_prompt(const char *channel) {
+    char prompt[128];
+    snprintf(prompt, sizeof(prompt),
+        "%c"COLOR_PROMPT"%c" "%s" "%c"COLOR_RESET"%c" "> ",
+        RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE, channel,
+        RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE);
+    rl_set_prompt(prompt);
+}
+
+static void
 sout(char *fmt, ...) {
     va_list ap;
 
@@ -167,7 +177,6 @@ privmsg(char *channel, char *msg) {
 static void
 parsein(char *s) {
     char c, *p;
-    char prompt[128];
 
     if(s[0] == '\0')
         return;
@@ -206,6 +215,15 @@ parsein(char *s) {
                 pout("", "No channel to send to");
             }
             return;
+        case 'l':
+            if (*default_channel) {
+                sout("PART %s :%s", default_channel, "Peace.");
+                strlcpy(default_channel, "", sizeof default_channel);
+                update_prompt(default_channel);
+            } else {
+                pout("", "No channel to send to");
+            }
+            return;
         }
 
     } else if(c != '\0' && isspace(s[1])) {
@@ -214,9 +232,7 @@ parsein(char *s) {
         case 'j':
             sout("JOIN %s", p);
             strlcpy(default_channel, p, sizeof default_channel);
-            snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
-
-            rl_set_prompt(prompt);
+            update_prompt(default_channel);
             return;
         case 'a':
             sout("AWAY %s", p);
@@ -231,15 +247,15 @@ parsein(char *s) {
         case 'l':
             s = eat(p, isspace, 1);
             p = eat(s, isspace, 0);
-            if(!*s)
-                s = default_channel;
             if(*p)
                 *p++ = '\0';
             if(!*p)
                 p = "Peace.";
             sout("PART %s :%s", s, p);
-            snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
-            rl_set_prompt(prompt);
+            if (!strcmp(default_channel, s)) {
+                strlcpy(default_channel, "", sizeof default_channel);
+                update_prompt(default_channel);
+            }
             return;
         case 'm':
             s = eat(p, isspace, 1);
@@ -250,8 +266,7 @@ parsein(char *s) {
             return;
         case 's':
             strlcpy(default_channel, p, sizeof default_channel);
-            snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
-            rl_set_prompt(prompt);
+            update_prompt(default_channel);
             return;
         }
     }
@@ -293,10 +308,7 @@ parsesrv(char *cmd) {
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
             if (default_channel[0] == '\0' && !strcmp(usr, nick)) {
-                char prompt[128];
-                strlcpy(default_channel, txt, sizeof default_channel);
-                snprintf(prompt, sizeof(prompt), COLOR_PROMPT "%s" COLOR_RESET "> ", default_channel);
-                rl_set_prompt(prompt);
+                update_prompt(default_channel);
             }
             pout(usr, "> joined %s", txt);
             insert_nick(usr);
