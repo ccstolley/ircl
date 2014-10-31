@@ -146,10 +146,11 @@ static void
 update_prompt(const char *channel) {
     char prompt[128];
     snprintf(prompt, sizeof(prompt),
-        "%c"COLOR_PROMPT"%c" "%s" "%c"COLOR_RESET"%c" "> ",
+        "%c" COLOR_PROMPT "%c" "%s" "%c" COLOR_RESET "%c" "> ",
         RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE, channel,
         RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE);
     rl_set_prompt(prompt);
+    rl_on_new_line_with_prompt();
 }
 
 static void
@@ -233,6 +234,7 @@ parsein(char *s) {
             sout("JOIN %s", p);
             strlcpy(default_channel, p, sizeof default_channel);
             update_prompt(default_channel);
+            insert_nick(default_channel);
             return;
         case 'a':
             sout("AWAY %s", p);
@@ -242,7 +244,7 @@ parsein(char *s) {
             return;
         case 'p':
             sout("PRIVMSG %s \1ACTION %s", default_channel, p);
-            pout(default_channel, "* %s %s", nick, p);
+            pout(default_channel, "* " COLOR_OUTGOING "%s" COLOR_RESET " %s", nick, p);
             return;
         case 'l':
             s = eat(p, isspace, 1);
@@ -557,6 +559,7 @@ username_generator(const char *text, int state) {
 char *
 nick_generator(const char *text, int state) {
   static int list_index, len;
+  const char *fullnick;
   const char *name;
 
   if (!state) {
@@ -566,9 +569,16 @@ nick_generator(const char *text, int state) {
 
   for (; list_index < MAX_NICKS;) {
       name = activenicks[list_index];
+      fullnick = name;
+      
       list_index++;
-      if (name && strncasecmp (name, text, len) == 0) {
-        return strdup(name);
+      if (name && (name[0] == '@' || name[0] == '#' || name[0] == '&')) {
+          /* skip prefixes like @person and #jerks */
+          name++;
+      }
+
+      if (name && strncasecmp(name, text, len) == 0) {
+        return strdup(fullnick);
       }
   }
   return ((char *)NULL);
