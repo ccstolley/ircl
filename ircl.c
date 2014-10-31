@@ -308,6 +308,7 @@ parsesrv(char *cmd) {
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
             if (default_channel[0] == '\0' && !strcmp(usr, nick)) {
+                strlcpy(default_channel, txt, sizeof default_channel);
                 update_prompt(default_channel);
             }
             pout(usr, "> joined %s", txt);
