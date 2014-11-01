@@ -124,10 +124,11 @@ pout(char *channel, char *fmt, ...) {
 
     strftime(timestr, sizeof timestr, "%R", localtime(&t));
     if (strcmp(channel, default_channel) == 0) {
-        fprintf(stdout, "%s : %s\n", timestr, bufout);
+        fprintf(rl_outstream, "%s : %s", timestr, bufout);
     } else {
-        fprintf(stdout, "%s : " COLOR_CHANNEL "%s" COLOR_RESET " %s\n", timestr, channel, bufout);
+       fprintf(rl_outstream, "%s : " COLOR_CHANNEL "%s" COLOR_RESET " %s", timestr, channel, bufout);
     }
+    fprintf(rl_outstream, "\n");
 
     strftime(timestr, sizeof timestr, "%D %T", localtime(&t));
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel, bufout);
@@ -490,29 +491,36 @@ initialize_readline () {
 
     /* remove '@&' from defaults */
     rl_completer_word_break_characters = " \t\n\"\\'`$><=;|{(";
-    rl_callback_handler_install("", (rl_vcpfunc_t*) &readline_nonblocking_cb);
+    rl_callback_handler_install("> ", (rl_vcpfunc_t*) &readline_nonblocking_cb);
     if (rl_bind_key(RETURN, handle_return_cb)) {
         eprint("failed to bind RETURN key");
     }
-    rl_set_prompt("> ");
     init_nicks();
 }
 
 int
 handle_return_cb() {
     char* line = NULL;
+    int i = 0, prompt_len = 0;
+
+    rl_done = 1;
 
     line = rl_copy_text(0, rl_end);
     line = stripwhite(line);
     rl_replace_line("", 1);
     rl_redisplay();
 
-
     if (line && *line) {
         add_history(line);
     }
 
     parsein(line);
+
+    /* erase prior prompt */
+    prompt_len = strlen(rl_prompt);
+    for (i=0; i < prompt_len; i++) {
+        fprintf(rl_outstream, "\b \b");
+    }
     return 0;
 }
 
@@ -522,9 +530,6 @@ readline_nonblocking_cb(char* line) {
     if (NULL==line) {
         eprint("ircl: broken pipe\n");
         return;
-    }
-    if (strcmp(line, "") == 0) {
-        rl_crlf();
     }
     free(line);
 }
