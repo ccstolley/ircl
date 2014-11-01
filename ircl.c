@@ -218,6 +218,9 @@ parsein(char *s) {
                 pout("", "No channel to send to");
             }
             return;
+        case 'a':
+            sout("AWAY");
+            return;
         case 'l':
             if (*default_channel) {
                 sout("PART %s :%s", default_channel, "Peace.");
