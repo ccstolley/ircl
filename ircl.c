@@ -3,14 +3,15 @@
 static char *host = "localhost";
 static char *port = "6667";
 static char *password;
-static char nick[32];
 static char bufin[4096];
 static char bufout[4096];
 static char default_channel[256];
+static char default_nick[32];
 static time_t trespond;
 static FILE *srv;
-static char *activenicks[MAX_NICKS];
-static int nactivenicks = 0;
+static char *all_nicks[MAX_NICKS];
+static int nick_count = 0;
+static const char * active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
 
 static void
 eprint(const char *fmt, ...) {
@@ -172,7 +173,7 @@ privmsg(char *channel, char *msg) {
         return;
     }
     insert_nick(channel);
-    pout(channel, "<" COLOR_OUTGOING "%s" COLOR_RESET"> %s", nick, msg);
+    pout(channel, "<" COLOR_OUTGOING "%s" COLOR_RESET"> %s", default_nick, msg);
     sout("PRIVMSG %s :%s", channel, msg);
 }
 
@@ -245,7 +246,7 @@ parsein(char *s) {
             return;
         case 'p':
             sout("PRIVMSG %s \1ACTION %s", default_channel, p);
-            pout(default_channel, "* " COLOR_OUTGOING "%s" COLOR_RESET " %s", nick, p);
+            pout(default_channel, "* " COLOR_OUTGOING "%s" COLOR_RESET " %s", default_nick, p);
             return;
         case 'l':
             s = eat(p, isspace, 1);
@@ -265,6 +266,7 @@ parsein(char *s) {
             p = eat(s, isspace, 0);
             if(*p)
                 *p++ = '\0';
+            update_active_nicks(s);
             privmsg(s, p);
             return;
         case 's':
@@ -298,6 +300,7 @@ parsesrv(char *cmd) {
     if(!strcmp("PONG", cmd))
         return;
     if(!strcmp("PRIVMSG", cmd)) {
+        update_active_nicks(usr);
         if (strncmp(txt, "\1ACTION ", 8) == 0) {
             /* action */
             txt += 8;
@@ -310,14 +313,18 @@ parsesrv(char *cmd) {
         sout("PONG %s", txt);
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
-            if (default_channel[0] == '\0' && !strcmp(usr, nick)) {
+            if (default_channel[0] == '\0' && !strcmp(usr, default_nick)) {
                 strlcpy(default_channel, txt, sizeof default_channel);
                 update_prompt(default_channel);
             }
-            pout(usr, "> joined %s", txt);
+            if (nick_is_active(usr)) {
+                pout(usr, "> joined %s", txt);
+            }
             insert_nick(usr);
-        } else if (strcmp(cmd, "QUIT") == 0) {
-            pout(usr, "> left %s", txt);
+        } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
+            if (nick_is_active(usr)) {
+                pout(usr, "> left %s", txt);
+            }
             remove_nick(usr);
         } else if (strcmp(cmd, "NICK") == 0) {
             pout(usr, "> is now known as " COLOR_CHANNEL "%s" COLOR_RESET, txt);
@@ -327,7 +334,8 @@ parsesrv(char *cmd) {
             /* eat it */
         } else if (strcmp(cmd, "001") == 0) {
             /* welcome message, make sure correct nick is stored. */
-            strlcpy(nick, par, sizeof nick);
+            strlcpy(default_nick, par, sizeof default_nick);
+            insert_nick(par);
         } else if (strcmp(cmd, "352") == 0) {
             /* who response */
             char *name  = strtok(par, " ");
@@ -340,7 +348,6 @@ parsesrv(char *cmd) {
             pout(usr, "%s %s", name, state);
         } else if (strcmp(cmd, "353") == 0) {
             char *client = strtok(txt, " ");
-            /* welcome message, make sure correct nick is stored. */
             while (client) {
                 if (client[0] == '@') {
                     /* remove @ from operators */
@@ -351,10 +358,51 @@ parsesrv(char *cmd) {
             }
         } else {
             pout(usr, ">< %s (%s): %s", cmd, par, txt);
-            if(!strcmp("NICK", cmd) && !strcmp(usr, nick))
-                strlcpy(nick, txt, sizeof nick);
+            if(!strcmp("NICK", cmd) && !strcmp(usr, default_nick))
+                strlcpy(default_nick, txt, sizeof default_nick);
         }
     }
+}
+
+static void
+update_active_nicks(const char *nick) {
+    /* Maintain a queue of the 10 most recent nicks to say something.
+     * Then mute everyone else's join/part activity. */
+    int i;
+    static int next_available = -1;
+
+    if (next_available < 0) {
+        /* initialize first */
+        for (i=0; i<ACTIVE_NICKS_QUEUE_SIZE; i++) {
+            active_nicks[i] = NULL;
+        }
+        next_available = 0;
+    }
+
+    for (i=0; i<ACTIVE_NICKS_QUEUE_SIZE; i++) {
+        if (active_nicks[i] && (strcasecmp(active_nicks[i], nick) == 0)) {
+            /* already in active queue, so skip */
+            return;
+        }   
+    }
+    if (active_nicks[next_available]) {
+        free((char*)active_nicks[next_available]);
+        active_nicks[next_available] = NULL;
+    }
+    active_nicks[next_available] = strdup(nick);
+    next_available = (next_available + 1) % ACTIVE_NICKS_QUEUE_SIZE;
+}
+
+static int
+nick_is_active(const char *nick) {
+    int i;
+
+    for (i=0; i<ACTIVE_NICKS_QUEUE_SIZE; i++) {
+        if (active_nicks[i] && (strcasecmp(active_nicks[i], nick) == 0)) {
+            return 1;
+        }   
+    }
+    return 0;
 }
 
 int
@@ -364,7 +412,7 @@ main(int argc, char *argv[]) {
     const char *user = getenv("USER");
     fd_set rd;
 
-    strlcpy(nick, user ? user : "unknown", sizeof nick);
+    strlcpy(default_nick, user ? user : "unknown", sizeof default_nick);
     for(i = 1; i < argc; i++) {
         c = argv[i][1];
         if(argv[i][0] != '-' || argv[i][2])
@@ -377,7 +425,7 @@ main(int argc, char *argv[]) {
             if(++i < argc) port = argv[i];
             break;
         case 'n':
-            if(++i < argc) strlcpy(nick, argv[i], sizeof nick);
+            if(++i < argc) strlcpy(default_nick, argv[i], sizeof default_nick);
             break;
         case 'k':
             if(++i < argc) password = argv[i];
@@ -394,8 +442,8 @@ main(int argc, char *argv[]) {
     /* login */
     if(password)
         sout("PASS %s", password);
-    sout("NICK %s", nick);
-    sout("USER %s localhost %s :%s", nick, host, nick);
+    sout("NICK %s", default_nick);
+    sout("USER %s localhost %s :%s", default_nick, host, default_nick);
     fflush(srv);
     setbuf(stdout, NULL);
     setbuf(srv, NULL);
@@ -437,20 +485,20 @@ insert_nick(const char *nick) {
     int next_available = -1;
 
     for (i=0; i<MAX_NICKS; i++) {
-        if (activenicks[i] == NULL) {
+        if (all_nicks[i] == NULL) {
             next_available = i;
-        } else if (strcasecmp(activenicks[i], nick) == 0) {
+        } else if (strcasecmp(all_nicks[i], nick) == 0) {
             /* duplicate found, so skip */
             return 0;
         }   
     }
     if (next_available != -1) {
-        activenicks[next_available] = strdup(nick);
-        nactivenicks++;
+        all_nicks[next_available] = strdup(nick);
+        nick_count++;
         return 1;
     } else {
         fprintf(stderr, "ERROR: Out of space in activenicks (%d)!\n",
-            nactivenicks);
+            nick_count);
         return -1;
     }   
 }
@@ -460,15 +508,15 @@ remove_nick(const char *nick) {
     int i;
 
     for (i=0; i<MAX_NICKS; i++) {
-        if (activenicks[i] && strcasecmp(activenicks[i], nick) == 0) {
-            free(activenicks[i]);
-            activenicks[i] = NULL;
-            nactivenicks--;
+        if (all_nicks[i] && strcasecmp(all_nicks[i], nick) == 0) {
+            free(all_nicks[i]);
+            all_nicks[i] = NULL;
+            nick_count--;
             return 1;
         }
     }
     fprintf(stderr, "ERROR: Failed to remove '%s' from activenicks (%d)!\n",
-            nick, nactivenicks);
+            nick, nick_count);
     return 0;
 }
 
@@ -477,7 +525,7 @@ init_nicks() {
     int i;
 
     for (i=0; i<MAX_NICKS; i++) {
-        activenicks[i] = NULL;
+        all_nicks[i] = NULL;
     }
 }
 
@@ -577,7 +625,7 @@ nick_generator(const char *text, int state) {
   }
 
   for (; list_index < MAX_NICKS;) {
-      name = activenicks[list_index];
+      name = all_nicks[list_index];
       fullnick = name;
       
       list_index++;
