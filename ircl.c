@@ -124,12 +124,8 @@ pout(char *channel, char *fmt, ...) {
 
 
     strftime(timestr, sizeof timestr, "%R", localtime(&t));
-    if (strcmp(channel, default_channel) == 0) {
-        fprintf(rl_outstream, "%s : %s", timestr, bufout);
-    } else {
-       fprintf(rl_outstream, "%s : " COLOR_CHANNEL "%s" COLOR_RESET " %s", timestr, channel, bufout);
-    }
-    fprintf(rl_outstream, "\n");
+    fprintf(rl_outstream, "%s : " COLOR_CHANNEL "%s" COLOR_RESET " %s\n",
+            timestr, channel, bufout);
 
     strftime(timestr, sizeof timestr, "%D %T", localtime(&t));
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel, bufout);
@@ -547,6 +543,7 @@ initialize_readline () {
         eprint("failed to bind RETURN key");
     }
     init_nicks();
+    load_usernames_file();
 }
 
 int
@@ -600,6 +597,11 @@ char *
 username_generator(const char *text, int state) {
     static int list_index, len;
     const char *name;
+    int offset =  0;
+
+    if (!usernames) {
+        return ((char *)NULL);
+    }
 
     if (!state) {
         list_index = 0;
@@ -607,9 +609,13 @@ username_generator(const char *text, int state) {
     }
 
     while ((name = usernames[list_index])) {
+        offset = 0;
         list_index++;
+        if (name[0] == '@' || name[0] == '&' || name[0] == '#') {
+            offset = 1; /* skip @ in @name, etc. */
+        }
 
-        if (strncasecmp (name, text, len) == 0) {
+        if (strncasecmp (name + offset, text, len) == 0) {
             return strdup(name);
         }
     }
@@ -660,4 +666,49 @@ stripwhite (char *string) {
     *++t = '\0';
 
     return s;
+}
+
+static void
+load_usernames_file() {
+    FILE *user_file = NULL;
+    char user_file_path[PATH_MAX];
+    char *line = NULL;
+    const char *home_path = NULL;
+    ssize_t chars_read = 0;
+    size_t len = 0;
+    int count = 0, i = 0;
+    SLIST_HEAD(listhead, entry) head = SLIST_HEAD_INITIALIZER(head);
+    struct entry {
+        SLIST_ENTRY(entry) entries;
+        const char *name;
+    } *entp;
+
+    home_path = getenv("HOME");
+    if (home_path == NULL) {
+        home_path = "/tmp";
+    }
+    snprintf(user_file_path, sizeof user_file_path, "%s/.irclusers", home_path);
+    user_file = fopen(user_file_path, "r");
+    if (user_file == NULL) {
+        usernames = NULL;
+        return;
+    }
+    while ((chars_read = getline(&line, &len, user_file)) != -1) {
+        if (chars_read > 2) {
+            line[chars_read - 1] = '\0'; /* remove delimiter */
+            entp = malloc(sizeof(struct entry));
+            entp->name = strdup(line);
+            SLIST_INSERT_HEAD(&head, entp, entries);
+            count++;
+        }
+    }
+    usernames = calloc(count+1, sizeof(char*));
+    for (i=0; i<count; i++) {
+        entp = SLIST_FIRST(&head);
+        SLIST_REMOVE_HEAD(&head, entries);
+        usernames[i] = entp->name;
+        free(entp);
+        printf("user: %s\n", usernames[i]);
+    }
+    usernames[count] = NULL; /* sentinel */
 }
