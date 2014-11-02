@@ -10,4 +10,5 @@ easy.
 Files of note:
 
 `${HOME}/.ircllog` - transcript of all traffic in ircl
+
 `${HOME}/.irclusers` - supplemental list of names for tab completion (one per line)
