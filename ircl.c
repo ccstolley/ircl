@@ -330,7 +330,11 @@ parsesrv(char *cmd) {
             if (nick_is_active(usr)) {
                 pout(usr, "> joined %s", txt);
             }
-            insert_nick(txt);
+            if (strcmp(txt, default_channel) == 0) {
+                /* if we joined a room, add it */
+                insert_nick(txt);
+            }
+            insert_nick(usr);
         } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
             if (nick_is_active(usr)) {
                 pout(usr, "> left %s", txt);
@@ -340,11 +344,15 @@ parsesrv(char *cmd) {
             pout(usr, "> is now known as " COLOR_CHANNEL "%s" COLOR_RESET, txt);
             remove_nick(usr);
             insert_nick(txt);
+            if (strcmp(usr, default_nick) == 0) {
+                strlcpy(default_nick, txt, sizeof default_nick);
+            }
         } else if (strcmp(cmd, "MODE") == 0) {
             /* eat it */
         } else if (strcmp(cmd, "001") == 0) {
             /* welcome message, make sure correct nick is stored. */
             strlcpy(default_nick, par, sizeof default_nick);
+            insert_nick(par);
         } else if (strcmp(cmd, "366") == 0) {
             /* end of names list, do nothing */
         } else if (strcmp(cmd, "315") == 0) {
@@ -360,6 +368,7 @@ parsesrv(char *cmd) {
             state = strtok(NULL, " ");
             pout(usr, "%s %s", name, state);
         } else if (strcmp(cmd, "353") == 0) {
+            /* names response */
             char *client = strtok(txt, " ");
             while (client) {
                 if (client[0] == '@') {
