@@ -335,6 +335,10 @@ parsesrv(char *cmd) {
             /* welcome message, make sure correct nick is stored. */
             strlcpy(default_nick, par, sizeof default_nick);
             insert_nick(par);
+        } else if (strcmp(cmd, "366") == 0) {
+            /* end of names list, do nothing */
+        } else if (strcmp(cmd, "315") == 0) {
+            /* end of who list, do nothing */
         } else if (strcmp(cmd, "352") == 0) {
             /* who response */
             char *name  = strtok(par, " ");
@@ -702,13 +706,15 @@ load_usernames_file() {
             count++;
         }
     }
+    fclose(user_file);
+    free(line);
+
     usernames = calloc(count+1, sizeof(char*));
     for (i=0; i<count; i++) {
         entp = SLIST_FIRST(&head);
         SLIST_REMOVE_HEAD(&head, entries);
         usernames[i] = entp->name;
         free(entp);
-        printf("user: %s\n", usernames[i]);
     }
     usernames[count] = NULL; /* sentinel */
 }
