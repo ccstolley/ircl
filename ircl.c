@@ -149,6 +149,7 @@ update_prompt(const char *channel) {
         RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE);
     rl_set_prompt(prompt);
     rl_on_new_line_with_prompt();
+    rl_redisplay();
 }
 
 static void
@@ -578,7 +579,11 @@ handle_return_cb() {
     parsein(line);
 
     /* erase prior prompt */
-    prompt_len = strlen(rl_prompt);
+    prompt_len = strlen(rl_prompt) - 17; /* subtract color escape codes */
+    if (prompt_len < 0) {
+        /* unless there are no escape codes */
+        prompt_len = strlen(rl_prompt);
+    }
     for (i=0; i < prompt_len; i++) {
         fprintf(rl_outstream, "\b \b");
     }
