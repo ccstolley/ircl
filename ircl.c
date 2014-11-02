@@ -173,6 +173,16 @@ privmsg(char *channel, char *msg) {
     sout("PRIVMSG %s :%s", channel, msg);
 }
 
+static int
+starts_with(const char *pre, const char *str) {
+    return strncmp(pre, str, strlen(pre)) == 0;
+}
+
+static int
+starts_with_symbol(const char *str) {
+    return (str && (str[0] == '#' || str[0] == '&' || str[0] == '@'));
+}
+
 static void
 parsein(char *s) {
     char c, *p;
@@ -319,7 +329,7 @@ parsesrv(char *cmd) {
             if (nick_is_active(usr)) {
                 pout(usr, "> joined %s", txt);
             }
-            insert_nick(usr);
+            insert_nick(txt);
         } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
             if (nick_is_active(usr)) {
                 pout(usr, "> left %s", txt);
@@ -334,7 +344,6 @@ parsesrv(char *cmd) {
         } else if (strcmp(cmd, "001") == 0) {
             /* welcome message, make sure correct nick is stored. */
             strlcpy(default_nick, par, sizeof default_nick);
-            insert_nick(par);
         } else if (strcmp(cmd, "366") == 0) {
             /* end of names list, do nothing */
         } else if (strcmp(cmd, "315") == 0) {
@@ -615,7 +624,7 @@ username_generator(const char *text, int state) {
     while ((name = usernames[list_index])) {
         offset = 0;
         list_index++;
-        if (name[0] == '@' || name[0] == '&' || name[0] == '#') {
+        if (!starts_with_symbol(text) && starts_with_symbol(name)) {
             offset = 1; /* skip @ in @name, etc. */
         }
 
@@ -642,7 +651,7 @@ nick_generator(const char *text, int state) {
       fullnick = name;
       
       list_index++;
-      if (name && (name[0] == '@' || name[0] == '#' || name[0] == '&')) {
+      if (name && !starts_with_symbol(text) && starts_with_symbol(name)) {
           /* skip prefixes like @person and #jerks */
           name++;
       }
