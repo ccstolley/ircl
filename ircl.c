@@ -671,7 +671,20 @@ nick_generator(const char *text, int state) {
       }
 
       if (name && strncasecmp(name, text, len) == 0) {
-        return strdup(fullnick);
+          if (rl_point == len) {
+              /* completing a nick at the beginning of a line, so
+               * append a colon:*/
+
+              char *nick_with_colon;
+              int sz;
+
+              sz = strlen(fullnick) + 2;
+              nick_with_colon = calloc(sz, sizeof(char));
+              snprintf(nick_with_colon, sz, "%s:", fullnick);
+              return nick_with_colon;
+          } else {
+              return strdup(fullnick);
+          }
       }
   }
   return ((char *)NULL);
