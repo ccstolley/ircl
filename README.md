@@ -1,7 +1,10 @@
 ircl
 ====
 
+![](https://github.com/ccstolley/misc/blob/master/img/ircl.png)
+
 Simple IRC client with customized tab completion.
+
 
 This is a work in progress. The goal is the simplest possible IRC
 client with a small set of features that make using it fast and
