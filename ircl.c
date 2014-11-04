@@ -175,18 +175,147 @@ privmsg(char *channel, char *msg) {
 }
 
 static int
-starts_with(const char *pre, const char *str) {
-    return strncmp(pre, str, strlen(pre)) == 0;
-}
-
-static int
 starts_with_symbol(const char *str) {
     return (str && (str[0] == '#' || str[0] == '&' || str[0] == '@'));
 }
 
+static int
+match_command(const char *cmd_name, const char *str) {
+    char * cmd = NULL;
+    int cmd_len = 0;
+    int result = 0;
+
+    cmd_len = strlen(cmd_name) + 3; /* '/' + space + nul */
+    cmd = malloc(cmd_len);
+
+
+    /* check if it's the cmd + space */
+    snprintf(cmd, cmd_len, "/%s ", cmd_name);
+    result = !strncmp(cmd, str, cmd_len - 1);
+
+    /* check if it's just the cmd, no args */
+    cmd[cmd_len - 2] = '\0';
+    result |= !strcmp(cmd, str);
+
+    free(cmd);
+    return result;
+}
+
+
+static void
+handle_help() {
+    pout("", "Commands:\n"
+        "\tg away   - AWAY <msg>\n"
+        "\th help   - display this message\n"
+        "\tj join   - JOIN <channel>\n"
+        "\tl part   - PART [<channel>]\n"
+        "\tm msg    - PRIVMSG <channel or nick> <msg>\n"
+        "\ta me     - ACTION <msg>\n"
+        "\ts switch - change channel to <channel>\n"
+        "\tw who    - WHO [<channel>]\n"
+        "\tW whoa   - WHO *\n"
+        "\tQ quit   - quit\n"
+    );
+}
+
+static void
+handle_who_all() { sout("WHO *"); }
+
+static void
+handle_who_channel(const char* args) {
+    if (args && *args) {
+        sout("WHO %s", args);
+    } else if (default_channel[0] != '\0') {
+        sout("WHO %s", default_channel);
+    } else {
+        pout("", "No channel to send to");
+    }
+}
+
+static void 
+handle_away(const char* args) {
+    if (args && *args) {
+        sout("AWAY %s", args);
+    } else {
+        sout("AWAY");
+    }
+}
+
+
+static void 
+handle_join(const char* args) {
+    if (args && *args) {
+        sout("JOIN %s", args);
+    } else {
+        pout("", "Must specify a channel to join.");
+    }
+}
+
+static void 
+handle_part(const char* args) {
+    if (args && *args) {
+        sout("PART %s", args);
+    } else {
+        if (*default_channel) {
+            sout("PART %s Peace.", default_channel);
+        } else {
+            pout("", "No channel to send to.");
+        }
+    }
+}
+
+static void
+handle_msg(const char* args) {
+    char *channel, *msg;
+    
+    if (!*args) {
+        pout("", "Must specify a nick and a message");
+        return;
+    }
+
+    channel = strdup(args);
+    msg = eat(channel, isspace, 0);
+    if(*msg)
+        *msg++ = '\0';
+    update_active_nicks(channel);
+    privmsg(channel, msg);
+    free(channel);
+}
+
+static void
+handle_me(const char* args) {
+    if (!*args) {
+        pout("", "Must specify a message");
+        return;
+    }
+
+    if (*default_channel) {
+        sout("PRIVMSG %s \1ACTION %s", default_channel, args);
+        pout(default_channel, "* " COLOR_OUTGOING "%s" COLOR_RESET " %s", default_nick, args);
+    } else {
+        pout("", "No channel to send to");
+    }
+}
+
+static void
+handle_switch(const char* args) {
+    if (!*args) {
+        pout("", "Must specify a channel to which you want to switch.");
+        return;
+    }
+    strlcpy(default_channel, args, sizeof default_channel);
+    update_prompt(default_channel);
+}
+
+static void
+handle_quit() {
+    sout("QUIT Peace.");
+}
+
 static void
 parsein(char *s) {
-    char c, *p;
+    int i = 0;
+    char* args = NULL;
 
     if(s[0] == '\0')
         return;
@@ -195,96 +324,17 @@ parsein(char *s) {
         privmsg(default_channel, s);
         return;
     }
-    c = *++s;
-    if (c != '\0' && strlen(s) == 1) {
-        switch(c) {
-        case 'c':
-            pout("Current channel: %s\n", default_channel);
-            return;
-        case 'h':
-            pout("", "Commands:\n"
-                 "a - AWAY <msg>\n"
-                 "c - show current channel\n"
-                 "h - help\n"
-                 "j - JOIN <channel>\n"
-                 "l - PART <channel>\n"
-                 "m - PRIVMSG <msg>\n"
-                 "p - ACTION <msg>\n"
-                 "s - SWITCH <channel>\n"
-                 "w - WHO [<channel>]\n"
-                 "W - WHO *\n"
-                 );
-            return;
-        case 'W':
-            sout("WHO *");
-            return;
-        case 'w':
-            if (default_channel[0] != '\0') {
-                sout("WHO %s", default_channel);
-            } else {
-                pout("", "No channel to send to");
-            }
-            return;
-        case 'a':
-            sout("AWAY");
-            return;
-        case 'l':
-            if (*default_channel) {
-                sout("PART %s :%s", default_channel, "Peace.");
-                strlcpy(default_channel, "", sizeof default_channel);
-                update_prompt(default_channel);
-            } else {
-                pout("", "No channel to send to");
-            }
-            return;
-        }
 
-    } else if(c != '\0' && isspace(s[1])) {
-        p = s + 2;
-        switch(c) {
-        case 'j':
-            sout("JOIN %s", p);
-            strlcpy(default_channel, p, sizeof default_channel);
-            update_prompt(default_channel);
-            insert_nick(default_channel);
-            return;
-        case 'a':
-            sout("AWAY %s", p);
-            return;
-        case 'w':
-            sout("WHO %s", p);
-            return;
-        case 'p':
-            sout("PRIVMSG %s \1ACTION %s", default_channel, p);
-            pout(default_channel, "* " COLOR_OUTGOING "%s" COLOR_RESET " %s", default_nick, p);
-            return;
-        case 'l':
-            s = eat(p, isspace, 1);
-            p = eat(s, isspace, 0);
-            if(*p)
-                *p++ = '\0';
-            if(!*p)
-                p = "Peace.";
-            sout("PART %s :%s", s, p);
-            if (!strcmp(default_channel, s)) {
-                strlcpy(default_channel, "", sizeof default_channel);
-                update_prompt(default_channel);
-            }
-            return;
-        case 'm':
-            s = eat(p, isspace, 1);
-            p = eat(s, isspace, 0);
-            if(*p)
-                *p++ = '\0';
-            update_active_nicks(s);
-            privmsg(s, p);
-            return;
-        case 's':
-            strlcpy(default_channel, p, sizeof default_channel);
-            update_prompt(default_channel);
+    for (i=0; command_map[i].short_cmd != NULL; i++) {
+        if (match_command(command_map[i].short_cmd, s) ||
+            match_command(command_map[i].long_cmd, s)) {
+            args = skip(s, ' ');
+            command_map[i].func_ptr(args);
             return;
         }
     }
+    /* pass commands though if they don't match one of ours */
+    s++;
     sout("%s", s);
 }
 
@@ -323,7 +373,8 @@ parsesrv(char *cmd) {
         sout("PONG %s", txt);
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
-            if (default_channel[0] == '\0' && !strcmp(usr, default_nick)) {
+            if (!strcmp(usr, default_nick)) {
+                pout(usr, "> joined %s", txt);
                 strlcpy(default_channel, txt, sizeof default_channel);
                 update_prompt(default_channel);
             }
@@ -336,8 +387,12 @@ parsesrv(char *cmd) {
             }
             insert_nick(usr);
         } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
-            if (nick_is_active(usr)) {
-                pout(usr, "> left %s", txt);
+            if (!strcmp(usr, default_nick)) {
+                strlcpy(default_channel, "", 1);
+                rl_set_prompt("> ");
+                rl_redisplay();
+            } else if (nick_is_active(usr)) {
+                pout(usr, "> left %s: %s", par, txt);
             }
             remove_nick(usr);
         } else if (strcmp(cmd, "NICK") == 0) {

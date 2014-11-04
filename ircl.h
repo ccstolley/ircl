@@ -36,4 +36,37 @@ static void update_active_nicks(const char*);
 static int nick_is_active(const char *);
 static void load_usernames_file();
 
+
+/* command handlers */
+struct command_handler {
+    const char *short_cmd;
+    const char *long_cmd;
+    void (*func_ptr)(const char*);
+};
+static void handle_help();
+static void handle_who_channel(const char*);
+static void handle_join(const char*);
+static void handle_part(const char*);
+static void handle_who_all();
+static void handle_msg(const char*);
+static void handle_me(const char*);
+static void handle_switch(const char*);
+static void handle_away(const char*);
+static void handle_quit();
+
+const struct command_handler command_map[] = {
+    { "g", "away", handle_away},
+    { "h", "help", handle_help},
+    { "j", "join", handle_join},
+    { "p", "part", handle_part},
+    { "m", "msg", handle_msg},
+    { "a", "me", handle_me},
+    { "s", "switch", handle_switch},
+    { "w", "who", handle_who_channel},
+    { "W", "whoa", handle_who_all},
+    { "Q", "quit", handle_quit},
+    { NULL, NULL, 0 }  /* sentinel */
+};
+
+
 const char** usernames;
