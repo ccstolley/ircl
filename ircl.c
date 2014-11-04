@@ -402,6 +402,9 @@ parsesrv(char *cmd) {
             if (strcmp(usr, default_nick) == 0) {
                 strlcpy(default_nick, txt, sizeof default_nick);
             }
+        } else if (strcmp(cmd, "NOTICE") == 0) {
+            insert_nick(usr);
+            pout(usr, "NOTICE > %s", txt);
         } else if (strcmp(cmd, "MODE") == 0) {
             /* eat it */
         } else if (strcmp(cmd, "001") == 0) {
@@ -668,15 +671,47 @@ readline_nonblocking_cb(char* line) {
 char **
 ircl_completion(const char *text, int start, int end) {
     char **matches = NULL;
+    int len = strlen(text);
+
     rl_attempted_completion_over = 1;  /* don't match on filenames, etc */
-    matches = rl_completion_matches(text, nick_generator);
+    if (text[0] == '/' && (rl_point == len)) {
+        text++;
+        matches = rl_completion_matches(text, cmd_generator);
+    }
+    if (!matches) {
+        matches = rl_completion_matches(text, nick_generator);
+    }
     if (!matches) {
         matches = rl_completion_matches(text, username_generator);
     }
     return matches;
 }
 
-char *
+static char *
+cmd_generator(const char *text, int state) {
+    static int list_index, len;
+    const char *name;
+
+    if (!state) {
+        list_index = 0;
+        len = strlen (text);
+    }
+
+    while ((name = command_map[list_index].long_cmd)) {
+        list_index++;
+        if (strncasecmp (name, text, len) == 0) {
+            char* cmd_name;
+            int cmd_len = 0;
+            cmd_len = strlen(name) + 2;
+            cmd_name = calloc(cmd_len, sizeof(char));
+            snprintf(cmd_name, cmd_len, "/%s", name);
+            return cmd_name;
+        }
+    }
+    return ((char *)NULL);
+}
+
+static char *
 username_generator(const char *text, int state) {
     static int list_index, len;
     const char *name;
@@ -705,7 +740,7 @@ username_generator(const char *text, int state) {
     return ((char *)NULL);
 }
 
-char *
+static char *
 nick_generator(const char *text, int state) {
   static int list_index, len;
   const char *fullnick;
