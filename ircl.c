@@ -410,6 +410,9 @@ parsesrv(char *cmd) {
             insert_nick(par);
         } else if (strcmp(cmd, "366") == 0) {
             /* end of names list, do nothing */
+        } else if (strcmp(cmd, "332") == 0) {
+            /* channel topic */
+            pout(usr, "%s TOPIC: %s", par, txt);
         } else if (strcmp(cmd, "315") == 0) {
             /* end of who list, do nothing */
         } else if (strcmp(cmd, "352") == 0) {
