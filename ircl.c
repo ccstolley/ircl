@@ -435,8 +435,6 @@ parsesrv(char *cmd) {
             }
         } else {
             pout(usr, ">< %s (%s): %s", cmd, par, txt);
-            if(!strcmp("NICK", cmd) && !strcmp(usr, default_nick))
-                strlcpy(default_nick, txt, sizeof default_nick);
         }
     }
 }
