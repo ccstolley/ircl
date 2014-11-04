@@ -12,3 +12,11 @@ Files of note:
 `${HOME}/.ircllog` - transcript of all traffic in ircl
 
 `${HOME}/.irclusers` - supplemental list of names for tab completion (one per line)
+
+Dependencies
+------------
+
+1. A C compiler
+2. The [GNU Readline](http://www.gnu.org/software/readline/) library
+and header files. Most BSD and Linux distributions include this,
+but for example Mac OSX does not.
