@@ -373,17 +373,19 @@ parsesrv(char *cmd) {
         sout("PONG %s", txt);
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
+            char * channel;
             if (!strcmp(usr, default_nick)) {
-                pout(usr, "> joined %s", txt);
-                strlcpy(default_channel, txt, sizeof default_channel);
+                channel = (*txt) ? txt : par;
+                pout(usr, "> joined %s", channel);
+                strlcpy(default_channel, channel, sizeof default_channel);
                 update_prompt(default_channel);
             }
             if (nick_is_active(usr)) {
-                pout(usr, "> joined %s", txt);
+                pout(usr, "> joined %s", channel);
             }
-            if (strcmp(txt, default_channel) == 0) {
+            if (strcmp(channel, default_channel) == 0) {
                 /* if we joined a room, add it */
-                insert_nick(txt);
+                insert_nick(channel);
             }
             insert_nick(usr);
         } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
