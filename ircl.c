@@ -320,7 +320,7 @@ parsein(char *s) {
     if(s[0] == '\0')
         return;
     skip(s, '\n');
-    if(s[0] != '/') {
+    if ((s[0] != '/') || (s[0] == '/' && s[1] == '/' && s++)) {
         privmsg(default_channel, s);
         return;
     }
