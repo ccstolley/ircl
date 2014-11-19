@@ -18,6 +18,7 @@
 #define COLOR_RESET "\033[00m"
 #define COLOR_OUTGOING "\033[01;33m"
 #define COLOR_INCOMING "\033[01;32m"
+#define COLOR_PM_INCOMING "\033[41;32m"
 #define COLOR_CHANNEL "\033[01;34m"
 #define COLOR_PROMPT "\033[00;33m"
 

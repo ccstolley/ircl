@@ -366,16 +366,19 @@ parsesrv(char *cmd) {
             txt += 8;
             pout(par, "* " COLOR_INCOMING "%s" COLOR_RESET " %s", usr, txt);
         } else {
-            pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
+            if (!strcmp(par, default_nick)) {
+                pout(par, "<" COLOR_PM_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
+            } else {
+                pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
+            }
         }
         insert_nick(usr);
     } else if(!strcmp("PING", cmd)) {
         sout("PONG %s", txt);
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
-            char * channel;
+            char * channel = (*txt) ? txt : par;
             if (!strcmp(usr, default_nick)) {
-                channel = (*txt) ? txt : par;
                 pout(usr, "> joined %s", channel);
                 strlcpy(default_channel, channel, sizeof default_channel);
                 update_prompt(default_channel);
@@ -598,8 +601,6 @@ remove_nick(const char *nick) {
             return 1;
         }
     }
-    fprintf(stderr, "ERROR: Failed to remove '%s' from activenicks (%d)!\n",
-            nick, nick_count);
     return 0;
 }
 
