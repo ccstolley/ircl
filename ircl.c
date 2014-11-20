@@ -183,9 +183,9 @@ static void
 update_prompt(const char *channel) {
     char prompt[128];
     snprintf(prompt, sizeof(prompt),
-        "%c" COLOR_PROMPT "%c" "%s" "%c" COLOR_RESET "%c" "> ",
-        RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE, channel,
-        RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE);
+        "%c" "%s" "%c" "%s" "%c" COLOR_RESET "%c" "> ",
+        RL_PROMPT_START_IGNORE, channel_color(channel), RL_PROMPT_END_IGNORE,
+        channel, RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE);
     rl_set_prompt(prompt);
     rl_on_new_line_with_prompt();
     rl_redisplay();
