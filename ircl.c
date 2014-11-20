@@ -247,7 +247,7 @@ handle_help() {
         "\tg away   - AWAY <msg>\n"
         "\th help   - display this message\n"
         "\tj join   - JOIN <channel>\n"
-        "\tl part   - PART [<channel>]\n"
+        "\tp part   - PART [<channel>]\n"
         "\tm msg    - PRIVMSG <channel or nick> <msg>\n"
         "\ta me     - ACTION <msg>\n"
         "\ts switch - change channel to <channel>\n"
@@ -419,12 +419,12 @@ parsesrv(char *cmd) {
             char * channel = (*txt) ? txt : par;
             if (!strcmp(usr, default_nick)) {
                 add_channel(channel);
-                pout(usr, "> joined %s", channel);
+                pout(usr, "> joined %s%s%s", channel_color(channel), channel, COLOR_RESET);
                 strlcpy(default_channel, channel, sizeof default_channel);
                 update_prompt(default_channel);
             }
             if (nick_is_active(usr)) {
-                pout(usr, "> joined %s", channel);
+                pout(usr, "> joined %s%s%s", channel_color(channel), channel, COLOR_RESET);
             }
             if (strcmp(channel, default_channel) == 0) {
                 /* if we joined a room, add it */
@@ -441,7 +441,7 @@ parsesrv(char *cmd) {
                     rl_redisplay();
                 }
             } else if (nick_is_active(usr)) {
-                pout(usr, "> left %s: %s", par, txt);
+                pout(usr, "> left %s %s", par, txt);
             }
             remove_nick(usr);
         } else if (strcmp(cmd, "NICK") == 0) {
