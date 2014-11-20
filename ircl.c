@@ -124,8 +124,8 @@ pout(char *channel, char *fmt, ...) {
 
 
     strftime(timestr, sizeof timestr, "%R", localtime(&t));
-    fprintf(rl_outstream, "%s : " COLOR_CHANNEL "%s" COLOR_RESET " %s\n",
-            timestr, channel, bufout);
+    fprintf(rl_outstream, "%s : %s%s" COLOR_RESET " %s\n",
+            timestr, channel_color(channel), channel, bufout);
 
     strftime(timestr, sizeof timestr, "%D %T", localtime(&t));
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel, bufout);
@@ -138,6 +138,45 @@ pout(char *channel, char *fmt, ...) {
         rl_redisplay();
         free(saved_line);
     }
+}
+
+static void
+add_channel(const char *channel) {
+    short i=0;
+
+    for (i=0; i<MAX_CHANNELS; i++) {
+        if (active_channels[i].name == NULL) {
+            active_channels[i].name = strdup(channel);
+            return;
+        }
+    }
+    pout("", "Error: Maximum channels reached; can't join.");
+}
+
+static void
+remove_channel(const char *channel) {
+    short i=0;
+
+    for (i=0; i<MAX_CHANNELS; i++) {
+        if (!strcmp(active_channels[i].name, channel)) {
+            free((char*)active_channels[i].name);
+            active_channels[i].name = NULL;
+            return;
+        }
+    }
+    fprintf(stderr, "ERROR: Unable to remove channel %s\n", channel);
+}
+
+static const char*
+channel_color(const char *channel) {
+    short i=0;
+
+    for (i=0; i<MAX_CHANNELS; i++) {
+        if (active_channels[i].name && !strcmp(active_channels[i].name, channel)) {
+            return active_channels[i].color;
+        }
+    }
+    return active_channels[MAX_CHANNELS - 1].color; /* default */
 }
 
 static void
@@ -379,6 +418,7 @@ parsesrv(char *cmd) {
         if (strcmp(cmd, "JOIN") == 0) {
             char * channel = (*txt) ? txt : par;
             if (!strcmp(usr, default_nick)) {
+                add_channel(channel);
                 pout(usr, "> joined %s", channel);
                 strlcpy(default_channel, channel, sizeof default_channel);
                 update_prompt(default_channel);
@@ -392,10 +432,14 @@ parsesrv(char *cmd) {
             }
             insert_nick(usr);
         } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
+            char * channel = (*txt) ? txt : par;
             if (!strcmp(usr, default_nick)) {
-                strlcpy(default_channel, "", 1);
-                rl_set_prompt("> ");
-                rl_redisplay();
+                remove_channel(channel);
+                if (!strcmp(channel, default_channel)) {
+                    strlcpy(default_channel, "", 1);
+                    rl_set_prompt("> ");
+                    rl_redisplay();
+                }
             } else if (nick_is_active(usr)) {
                 pout(usr, "> left %s: %s", par, txt);
             }

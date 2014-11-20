@@ -16,10 +16,10 @@
 #define MAX_NICKS 1024
 #define ACTIVE_NICKS_QUEUE_SIZE 10
 #define COLOR_RESET "\033[00m"
-#define COLOR_OUTGOING "\033[01;33m"
-#define COLOR_INCOMING "\033[01;32m"
-#define COLOR_PM_INCOMING "\033[41;32m"
-#define COLOR_CHANNEL "\033[01;34m"
+#define COLOR_OUTGOING "\033[00;33m"
+#define COLOR_INCOMING "\033[00;32m"
+#define COLOR_PM_INCOMING "\033[01;31m"
+#define COLOR_CHANNEL "\033[07;34m"
 #define COLOR_PROMPT "\033[00;33m"
 
 
@@ -37,7 +37,9 @@ int handle_return_cb();
 static void update_active_nicks(const char*);
 static int nick_is_active(const char *);
 static void load_usernames_file();
-
+static void add_channel(const char *); 
+static void remove_channel(const char *);
+static const char* channel_color(const char *);
 
 /* command handlers */
 struct command_handler {
@@ -69,6 +71,17 @@ const struct command_handler command_map[] = {
     { "Q", "quit", handle_quit},
     { NULL, NULL, 0 }  /* sentinel */
 };
-
-
+struct irc_channel {
+    const char *name;
+    const char const *color;
+};
+struct irc_channel active_channels[] = {
+    {NULL, "\033[01;37m"}, /* white */
+    {NULL, "\033[01;35m"}, /* magenta */
+    {NULL, "\033[01;36m"}, /* cyan */
+    {NULL, "\033[01;32m"}, /* green */
+    {NULL, "\033[01;33m"}, /* yellow */
+    {NULL, "\033[01;34m"}, /* blue */
+};
+const int MAX_CHANNELS = sizeof(active_channels)/sizeof(struct irc_channel);
 const char** usernames;
