@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <errno.h>
+#include <libgen.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

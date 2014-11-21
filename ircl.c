@@ -11,7 +11,8 @@ static time_t trespond;
 static FILE *srv;
 static char *all_nicks[MAX_NICKS];
 static int nick_count = 0;
-static const char * active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
+static const char *active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
+static const char *log_file_path = NULL;
 
 static void
 eprint(const char *fmt, ...) {
@@ -84,15 +85,47 @@ trim(char *s) {
 }
 
 static void
+initialize_logging(const char *log_file) {
+    const char *default_name = ".ircllog";
+    const char *base_path;
+    int log_file_path_len = 0;
+    if (!log_file) {
+        base_path = getenv("HOME");
+        if (!base_path)
+            base_path = "/var/tmp";
+        log_file_path_len = strlen(base_path) + strlen(default_name) + 4;
+        log_file_path = calloc(log_file_path_len, sizeof(char));
+        snprintf((char*)log_file_path, log_file_path_len, "%s/%s", base_path,
+                 default_name);
+    } else {
+        if (log_file[0] != '/') {
+            base_path = getcwd(NULL, 0);
+            log_file_path_len = strlen(base_path) + strlen(log_file) + 4;
+            log_file_path = calloc(log_file_path_len, sizeof(char));
+            snprintf((char*)log_file_path, log_file_path_len, "%s/%s", base_path,
+                 log_file);
+        } else {
+            log_file_path = strdup(log_file);
+        }
+    
+    }
+    printf("Logging to %s\n", log_file_path);
+    if (0 != access(log_file_path, R_OK|W_OK)) {
+        if (errno == ENOENT) {
+            const char *dir_path = dirname(log_file_path);
+            if (dir_path && (0 == access(dir_path, R_OK|W_OK))) {
+                return;
+            }
+        }
+        eprint("Unable to write to log file %s: %s\n", log_file_path,
+                strerror(errno));
+    }
+}
+
+static void
 logmsg(const char *msg, const int len) {
     FILE *logf;
-    char logfilepath[512];
-    const char *homepath;
-    homepath = getenv("HOME");
-    if (!homepath)
-        homepath = "/var/tmp";
-    snprintf(logfilepath, sizeof(logfilepath), "%s/.ircllog", homepath);
-    logf = fopen(logfilepath, "a");
+    logf = fopen(log_file_path, "a");
     fwrite(msg, len, 1, logf);
     fclose(logf);
 }
@@ -562,9 +595,15 @@ main(int argc, char *argv[]) {
             break;
         case 'v':
             eprint("ircl-"VERSION"\n");
+        case 'l':
+            if(++i < argc) initialize_logging(argv[i]);
+            break;
         default:
             eprint("usage: ircl [-h host] [-p port] [-n nick] [-k keyword] [-v]\n");
         }
+    }
+    if (!log_file_path) {
+        initialize_logging(NULL);
     }
     /* init */
     i = dial(host, port);
