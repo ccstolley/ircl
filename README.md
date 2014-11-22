@@ -33,6 +33,10 @@ Features
 - quiet output: intelligently mutes join/part/mode messages unless the nick is recently active.
 - simple, small codebase, small memory requirements
 
+Screen Snapshot
+---------------
+![](https://github.com/ccstolley/misc/blob/master/img/ircl_snap.png)
+
 Future plans
 ------------
 
