@@ -189,10 +189,12 @@ add_channel(const char *channel) {
 static void
 remove_channel(const char *channel) {
     short i=0;
+    const char *name;
 
     for (i=0; i<MAX_CHANNELS; i++) {
-        if (!strcmp(active_channels[i].name, channel)) {
-            free((char*)active_channels[i].name);
+        name = active_channels[i].name;
+        if (name && !strcmp(name, channel)) {
+            free((char*)name);
             active_channels[i].name = NULL;
             return;
         }
@@ -465,16 +467,17 @@ parsesrv(char *cmd) {
             }
             insert_nick(usr);
         } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
-            char * channel = (*txt) ? txt : par;
+            char * channel = par;
             if (!strcmp(usr, default_nick)) {
                 remove_channel(channel);
+                pout(usr, "> left %s %s", channel, txt);
                 if (!strcmp(channel, default_channel)) {
                     strlcpy(default_channel, "", 1);
                     rl_set_prompt("> ");
                     rl_redisplay();
                 }
             } else if (nick_is_active(usr)) {
-                pout(usr, "> left %s %s", par, txt);
+                pout(usr, "> left %s %s", channel, txt);
             }
             remove_nick(usr);
         } else if (strcmp(cmd, "NICK") == 0) {
