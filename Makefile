@@ -22,4 +22,4 @@ ircl: ${OBJ}
 
 clean:
 	@echo cleaning
-	@rm -f ircl ${OBJ}
+	@rm -f ircl ${OBJ} *.core

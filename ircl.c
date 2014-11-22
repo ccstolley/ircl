@@ -206,6 +206,9 @@ static const char*
 channel_color(const char *channel) {
     short i=0;
 
+    if (!strcmp(channel, default_nick)) {
+        return COLOR_PM_INCOMING;
+    }
     for (i=0; i<MAX_CHANNELS; i++) {
         if (active_channels[i].name && !strcmp(active_channels[i].name, channel)) {
             return active_channels[i].color;
@@ -440,11 +443,7 @@ parsesrv(char *cmd) {
             txt += 8;
             pout(par, "* " COLOR_INCOMING "%s" COLOR_RESET " %s", usr, txt);
         } else {
-            if (!strcmp(par, default_nick)) {
-                pout(par, "<" COLOR_PM_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
-            } else {
-                pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
-            }
+            pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
         }
         insert_nick(usr);
     } else if(!strcmp("PING", cmd)) {
