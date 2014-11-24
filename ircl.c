@@ -183,7 +183,7 @@ add_channel(const char *channel) {
             return;
         }
     }
-    pout("", "Error: Maximum channels reached; can't join.");
+    pout("ircl", "Error: Maximum channels reached; can't join.");
 }
 
 static void
@@ -243,7 +243,7 @@ sout(char *fmt, ...) {
 static void
 privmsg(char *channel, char *msg) {
     if(channel[0] == '\0') {
-        pout("", "No channel to send to");
+        pout("ircl", "No channel to send to");
         return;
     }
     insert_nick(channel);
@@ -281,14 +281,14 @@ match_command(const char *cmd_name, const char *str) {
 
 static void
 handle_help() {
-    pout("", "Commands:\n"
+    pout("ircl", "Commands:\n"
         "\tg away   - AWAY <msg>\n"
         "\th help   - display this message\n"
         "\tj join   - JOIN <channel>\n"
         "\tp part   - PART [<channel>]\n"
         "\tm msg    - PRIVMSG <channel or nick> <msg>\n"
         "\ta me     - ACTION <msg>\n"
-        "\ts switch - change channel to <channel>\n"
+        "\ts switch - change channel to <channel> or list channels\n"
         "\tw who    - WHO [<channel>]\n"
         "\tW whoa   - WHO *\n"
         "\tQ quit   - quit\n"
@@ -305,7 +305,7 @@ handle_who_channel(const char* args) {
     } else if (default_channel[0] != '\0') {
         sout("WHO %s", default_channel);
     } else {
-        pout("", "No channel to send to");
+        pout("ircl", "No channel to send to");
     }
 }
 
@@ -324,7 +324,7 @@ handle_join(const char* args) {
     if (args && *args) {
         sout("JOIN %s", args);
     } else {
-        pout("", "Must specify a channel to join.");
+        pout("ircl", "Must specify a channel to join.");
     }
 }
 
@@ -336,7 +336,7 @@ handle_part(const char* args) {
         if (*default_channel) {
             sout("PART %s Peace.", default_channel);
         } else {
-            pout("", "No channel to send to.");
+            pout("ircl", "No channel to send to.");
         }
     }
 }
@@ -346,7 +346,7 @@ handle_msg(const char* args) {
     char *channel, *msg;
     
     if (!*args) {
-        pout("", "Must specify a nick and a message");
+        pout("ircl", "Must specify a nick and a message");
         return;
     }
 
@@ -362,7 +362,7 @@ handle_msg(const char* args) {
 static void
 handle_me(const char* args) {
     if (!*args) {
-        pout("", "Must specify a message");
+        pout("ircl", "Must specify a message");
         return;
     }
 
@@ -370,14 +370,23 @@ handle_me(const char* args) {
         sout("PRIVMSG %s \1ACTION %s", default_channel, args);
         pout(default_channel, "* " COLOR_OUTGOING "%s" COLOR_RESET " %s", default_nick, args);
     } else {
-        pout("", "No channel to send to");
+        pout("ircl", "No channel to send to");
     }
 }
 
 static void
 handle_switch(const char* args) {
     if (!*args) {
-        pout("", "Must specify a channel to which you want to switch.");
+        int i;
+        const char *name, *color;
+        pout("ircl", "Active Channels:");
+        for (i=0; i<MAX_CHANNELS; i++) {
+            name = active_channels[i].name;
+            color = active_channels[i].color;
+            if (name) {
+                pout("ircl", "    %s%s%s", color, name, COLOR_RESET);
+            }
+        }
         return;
     }
     strlcpy(default_channel, args, sizeof default_channel);
