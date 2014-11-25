@@ -14,6 +14,7 @@
 #include <sys/queue.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#define UNUSED(x) (void)(x)
 #define MAX_NICKS 1024
 #define ACTIVE_NICKS_QUEUE_SIZE 10
 #define COLOR_RESET "\033[00m"

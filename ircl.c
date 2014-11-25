@@ -769,6 +769,8 @@ char **
 ircl_completion(const char *text, int start, int end) {
     char **matches = NULL;
     int len = strlen(text);
+    UNUSED(start);
+    UNUSED(end);
 
     rl_attempted_completion_over = 1;  /* don't match on filenames, etc */
     if (text[0] == '/' && (rl_point == len)) {
