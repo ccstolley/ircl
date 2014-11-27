@@ -56,11 +56,14 @@ The following commands (each beginning with the usual "/") are supported:
         Q quit   - quit
 ```
 
-
-
 Screen Snapshot
 ---------------
 ![](https://github.com/ccstolley/misc/blob/master/img/ircl_snap.png)
+
+Getting Help
+------------
+
+Stop by #ircl on irc.foonetic.net and ask your question!
 
 Future plans
 ------------
