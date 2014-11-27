@@ -83,3 +83,23 @@ account 0 on
 11:05 : &bitlbee <root> jabber - Logging in: Connected to server, logging in
 ...
 ```
+
+#### Getting tab-completed @mentions to work
+
+`ircl` provides an easy way to include additional usernames for tab-completion. Simply place all @names in a file called `${HOME}/.irclusers`, one per line. You can even use HipChat's API to pre-load all @names for you, using a python script like so:
+
+```python
+import json
+import requests
+import os
+
+
+irclusers = os.path.join(os.environ['HOME'], '.irclusers')
+auth_token = 'auth_token=<HipChat api auth token>'
+users = requests.get('https://api.hipchat.com/v2/user?' + auth_token).json();
+
+with open(irclusers, "w") as users_file:
+    for user in users['items']:
+        users_file.write('@{}\n'.format(user["mention_name"]))
+```
+You can get an API auth token from Account Settings in HipChat's web interface.
