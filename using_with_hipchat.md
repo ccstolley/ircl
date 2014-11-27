@@ -31,18 +31,16 @@ ircl -h localhost -p 6667
 
 #### Configuring Bitlbee to talk to the HipChat XMPP interface
 
-1. Register your nick (your username by default) with a password:
+1) Register your nick (your username by default) with a password:
 ```
 register somepassword
 ```
-
-2. Create the account in bitlbee, set the nick format:
+2) Create the account in bitlbee, set the nick format:
 ```
 account add jabber <hipchat jabber ID> <hipchat password>
 account 0 set nick_format %full_name
 ```
-
-3. Add channels:
+3) Add channels:
 ```
 chat add 0 <hipchat room name>@conf.hipchat.com #<channel name>
 channel 1 set nick "Your Full Name"
@@ -55,8 +53,7 @@ channel 2 set auto_join true
 ...
 
 ```
-
-4. Save your work and log in.
+4) Save your work and log in.
 ```
 save
 account 0 on
