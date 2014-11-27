@@ -11,6 +11,7 @@ static time_t trespond;
 static FILE *srv;
 static char *all_nicks[MAX_NICKS];
 static int nick_count = 0;
+static int is_away = 0;
 static const char *active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
 static const char *log_file_path = NULL;
 
@@ -221,9 +222,10 @@ static void
 update_prompt(const char *channel) {
     char prompt[128];
     snprintf(prompt, sizeof(prompt),
-        "%c" "%s" "%c" "%s" "%c" COLOR_RESET "%c" "> ",
+        "%c" "%s" "%c" "%s" "%c" COLOR_RESET "%c" "%c ",
         RL_PROMPT_START_IGNORE, channel_color(channel), RL_PROMPT_END_IGNORE,
-        channel, RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE);
+        channel, RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE,
+        (is_away) ? '*' : '>');
     rl_set_prompt(prompt);
     rl_on_new_line_with_prompt();
     rl_redisplay();
@@ -313,9 +315,12 @@ static void
 handle_away(const char* args) {
     if (args && *args) {
         sout("AWAY %s", args);
+        is_away = 1;
     } else {
         sout("AWAY");
+        is_away = 0;
     }
+    update_prompt(default_channel);
 }
 
 
@@ -481,8 +486,7 @@ parsesrv(char *cmd) {
                 pout(usr, "> left %s %s", channel, txt);
                 if (!strcmp(channel, default_channel)) {
                     strlcpy(default_channel, "", 1);
-                    rl_set_prompt("> ");
-                    rl_redisplay();
+                    update_prompt("");
                 }
             } else if (nick_is_active(usr)) {
                 pout(usr, "> left %s %s", channel, txt);
@@ -775,7 +779,7 @@ ircl_completion(const char *text, int start, int end) {
     rl_attempted_completion_over = 1;  /* don't match on filenames, etc */
     if (text[0] == '/' && (rl_point == len)) {
         text++;
-        matches = rl_completion_matches(text, cmd_generator);
+        return rl_completion_matches(text, cmd_generator);
     }
     if (!matches) {
         matches = rl_completion_matches(text, nick_generator);
