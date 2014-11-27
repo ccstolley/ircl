@@ -776,16 +776,26 @@ ircl_completion(const char *text, int start, int end) {
     UNUSED(start);
     UNUSED(end);
 
+    /* Matching proceeds with the following rules:
+       (1) If we're at the beginning of the line and text starts with
+           a '/', match only on commands.
+       (2) If text starts with an '@', match only on external usernames.
+       (3) Else, match against nicks. If no nicks match, fall back to
+           external usernames. */
+
     rl_attempted_completion_over = 1;  /* don't match on filenames, etc */
     if (text[0] == '/' && (rl_point == len)) {
         text++;
-        return rl_completion_matches(text, cmd_generator);
-    }
-    if (!matches) {
-        matches = rl_completion_matches(text, nick_generator);
-    }
-    if (!matches) {
-        matches = rl_completion_matches(text, username_generator);
+        matches = rl_completion_matches(text, cmd_generator);
+    } else {
+        if (text[0] == '@') {
+            matches = rl_completion_matches(text, username_generator);
+        } else {
+            matches = rl_completion_matches(text, nick_generator);
+            if (!matches && text[0] != '@') {
+                matches = rl_completion_matches(text, username_generator);
+            }
+        }
     }
     return matches;
 }
