@@ -35,6 +35,29 @@ Features
 - quiet output: intelligently mutes join/part/mode messages unless the nick is recently active.
 - simple, small codebase, small memory requirements
 
+Usage
+-----
+From the command line:
+```
+usage: ircl [-h host] [-p port] [-n nick] [-k keyword] [-v]
+```
+
+The following commands (each beginning with the usual "/") are supported:
+```
+        g away   - AWAY <msg>
+        h help   - display this message
+        j join   - JOIN <channel>
+        p part   - PART [<channel>]
+        m msg    - PRIVMSG <channel or nick> <msg>
+        a me     - ACTION <msg>
+        s switch - change channel to <channel> or list channels
+        w who    - WHO [<channel>]
+        W whoa   - WHO *
+        Q quit   - quit
+```
+
+
+
 Screen Snapshot
 ---------------
 ![](https://github.com/ccstolley/misc/blob/master/img/ircl_snap.png)
