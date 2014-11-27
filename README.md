@@ -10,6 +10,8 @@ This is a work in progress. The goal is the simplest possible IRC
 client with a small set of features that make using it fast and
 easy.
 
+Stuck with HipChat? See [Using ircl with HipChat](using_with_hipchat.md).
+
 Files of note:
 
 `${HOME}/.ircllog` - transcript of all traffic in ircl
