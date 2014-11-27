@@ -392,10 +392,20 @@ handle_switch(const char* args) {
                 pout("ircl", "    %s%s%s", color, name, COLOR_RESET);
             }
         }
-        return;
+    } else {
+        char *channel;
+        char *msg;
+
+        channel = strdup(args);
+        msg = eat(channel, isspace, 0);
+        if(*msg) {
+            *msg++ = '\0';
+            privmsg(channel, msg);
+        }
+        strlcpy(default_channel, channel, sizeof default_channel);
+        free(channel);
+        update_prompt(default_channel);
     }
-    strlcpy(default_channel, args, sizeof default_channel);
-    update_prompt(default_channel);
 }
 
 static void
