@@ -624,7 +624,7 @@ main(int argc, char *argv[]) {
             if(++i < argc) initialize_logging(argv[i]);
             break;
         default:
-            eprint("usage: ircl [-h host] [-p port] [-n nick] [-k keyword] [-v]\n");
+            eprint("usage: ircl [-h host] [-p port] [-l log file] [-n nick] [-k keyword] [-v]\n");
         }
     }
     if (!log_file_path) {

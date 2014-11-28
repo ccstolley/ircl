@@ -39,7 +39,7 @@ Usage
 -----
 From the command line:
 ```
-usage: ircl [-h host] [-p port] [-n nick] [-k keyword] [-v]
+usage: ircl [-h host] [-p port] [-l log file] [-n nick] [-k keyword] [-v]
 ```
 
 The following commands (each beginning with the usual "/") are supported:
