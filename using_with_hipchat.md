@@ -76,7 +76,7 @@ account 0 on
 11:05 : &bitlbee <root> auto_join = `true'
 11:05 : &bitlbee <stolley> save
 11:05 : &bitlbee <root> Configuration saved
-11:05 : &bitlbee <stolley> account on
+11:05 : &bitlbee <stolley> account 0 on
 11:05 : &bitlbee <root> jabber - Logging in: Connecting
 11:05 : &bitlbee <root> jabber - Logging in: Connected to server, logging in
 11:05 : &bitlbee <root> jabber - Logging in: Converting stream to TLS
