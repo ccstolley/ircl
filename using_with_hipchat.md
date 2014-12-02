@@ -96,7 +96,7 @@ import os
 
 irclusers = os.path.join(os.environ['HOME'], '.irclusers')
 auth_token = 'auth_token=<HipChat api auth token>'
-users = requests.get('https://api.hipchat.com/v2/user?' + auth_token).json();
+users = requests.get('https://api.hipchat.com/v2/user?max-results=1000&' + auth_token).json();
 
 with open(irclusers, "w") as users_file:
     for user in users['items']:
