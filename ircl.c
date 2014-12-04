@@ -129,6 +129,26 @@ logmsg(const char *msg, const int len) {
     fclose(logf);
 }
 
+static char*
+highlight_user(const char *buf) {
+    int nick_buf_len = 0, buf_len = 0;
+    char *tmp_buf = NULL;
+    char *nick_buf = NULL;
+
+    nick_buf_len = strlen(default_nick) + 3;
+    nick_buf = calloc(nick_buf_len, sizeof(char));
+    snprintf(nick_buf, nick_buf_len, "%s: ", default_nick);
+
+    printf("'%s'", buf);
+    if (!strncmp(buf, nick_buf, nick_buf_len - 1)) {
+        buf_len = strlen(buf) + strlen(COLOR_PM_INCOMING COLOR_RESET) + 1;
+        tmp_buf = calloc(buf_len, sizeof(char));
+        snprintf(tmp_buf, buf_len, "%s%s%s: %s", COLOR_PM_INCOMING,
+                 default_nick, COLOR_RESET, buf + nick_buf_len - 1);
+    }
+    return tmp_buf;
+}
+
 static void
 pout(char *channel, char *fmt, ...) {
     static char timestr[32];
@@ -136,10 +156,9 @@ pout(char *channel, char *fmt, ...) {
     time_t t;
     va_list ap;
     int saved_point, save_prompt, len;
-    char* saved_line;
+    char *saved_line;
 
     save_prompt = !RL_ISSTATE(RL_STATE_DONE);
-
     if (save_prompt) {
         saved_point = rl_point;
         saved_line = rl_copy_text(0, rl_end);
@@ -154,13 +173,13 @@ pout(char *channel, char *fmt, ...) {
     va_end(ap);
     t = time(NULL);
 
-
     strftime(timestr, sizeof timestr, "%R", localtime(&t));
     fprintf(rl_outstream, "%s : %s%s" COLOR_RESET " %s\n",
             timestr, channel_color(channel), channel, bufout);
 
     strftime(timestr, sizeof timestr, "%D %T", localtime(&t));
-    len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel, bufout);
+    len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel,
+                   bufout);
     logmsg(logbuf, len);
 
     if (save_prompt) {
@@ -465,7 +484,15 @@ parsesrv(char *cmd) {
             txt += 8;
             pout(par, "* " COLOR_INCOMING "%s" COLOR_RESET " %s", usr, txt);
         } else {
-            pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
+            char *highlighted_txt = highlight_user(txt);
+            if (highlighted_txt) {
+                pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr,
+                     highlighted_txt);
+                free(highlighted_txt);
+                highlighted_txt = NULL;
+            } else {
+                pout(par, "<" COLOR_INCOMING "%s" COLOR_RESET "> %s", usr, txt);
+            }
         }
         insert_nick(usr);
     } else if(!strcmp("PING", cmd)) {
