@@ -139,7 +139,6 @@ highlight_user(const char *buf) {
     nick_buf = calloc(nick_buf_len, sizeof(char));
     snprintf(nick_buf, nick_buf_len, "%s: ", default_nick);
 
-    printf("'%s'", buf);
     if (!strncmp(buf, nick_buf, nick_buf_len - 1)) {
         buf_len = strlen(buf) + strlen(COLOR_PM_INCOMING COLOR_RESET) + 1;
         tmp_buf = calloc(buf_len, sizeof(char));
