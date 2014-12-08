@@ -23,6 +23,9 @@
 #define COLOR_PM_INCOMING "\033[01;31m"
 #define COLOR_CHANNEL "\033[07;34m"
 #define COLOR_PROMPT "\033[00;33m"
+#ifndef PATH_MAX
+  #define PATH_MAX 1024
+#endif
 
 
 int insert_nick(const char *nick);
