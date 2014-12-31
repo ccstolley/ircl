@@ -92,10 +92,11 @@ initialize_logging(const char *log_file) {
         base_path = getenv("HOME");
         if (!base_path)
             base_path = "/var/tmp";
-        log_file_path_len = strlen(base_path) + strlen(default_name) + 4;
+        log_file_path_len = strlen(base_path) + strlen(default_name) +
+                            strlen(default_nick) + 4;
         log_file_path = calloc(log_file_path_len, sizeof(char));
-        snprintf((char*)log_file_path, log_file_path_len, "%s/%s", base_path,
-                 default_name);
+        snprintf((char*)log_file_path, log_file_path_len, "%s/%s-%s", base_path,
+                 default_name, default_nick);
     } else {
         if (log_file[0] != '/') {
             base_path = getcwd(NULL, 0);
@@ -705,6 +706,7 @@ insert_nick(const char *nick) {
     for (i=0; i<MAX_NICKS; i++) {
         if (all_nicks[i] == NULL) {
             next_available = i;
+            break;
         } else if (strcasecmp(all_nicks[i], nick) == 0) {
             /* duplicate found, so skip */
             return 0;
@@ -889,7 +891,7 @@ username_generator(const char *text, int state) {
 
 static char *
 nick_generator(const char *text, int state) {
-  static int list_index, len;
+  static int list_index = 0, len = 0;
   const char *fullnick;
   const char *name;
 
