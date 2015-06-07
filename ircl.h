@@ -37,7 +37,6 @@ static char *username_generator(const char *, int);
 static char *nick_generator(const char *, int);
 static char *cmd_generator(const char *, int);
 char **ircl_completion(const char *, int, int);
-static void swap(char **, int, int);
 void readline_nonblocking_cb(char* line);
 int handle_return_cb();
 static void update_active_nicks(const char*);
