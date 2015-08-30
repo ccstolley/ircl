@@ -14,6 +14,12 @@
 #include <sys/queue.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdbool.h>
+
+#include <openssl/ssl.h>
+#include <openssl/bio.h>
+
+
 #define UNUSED(x) (void)(x)
 #define MAX_NICKS 1024
 #define ACTIVE_NICKS_QUEUE_SIZE 10
@@ -45,6 +51,7 @@ static void load_usernames_file();
 static void add_channel(const char *); 
 static void remove_channel(const char *);
 static const char* channel_color(const char *);
+static void ssl_connect(const int);
 
 /* command handlers */
 struct command_handler {
@@ -81,6 +88,18 @@ struct irc_channel {
     const char const *color;
 };
 struct irc_channel active_channels[] = {
+    {NULL, "\033[01;37m"}, /* white */
+    {NULL, "\033[01;35m"}, /* magenta */
+    {NULL, "\033[01;36m"}, /* cyan */
+    {NULL, "\033[01;32m"}, /* green */
+    {NULL, "\033[01;33m"}, /* yellow */
+    {NULL, "\033[01;34m"}, /* blue */
+    {NULL, "\033[01;37m"}, /* white */
+    {NULL, "\033[01;35m"}, /* magenta */
+    {NULL, "\033[01;36m"}, /* cyan */
+    {NULL, "\033[01;32m"}, /* green */
+    {NULL, "\033[01;33m"}, /* yellow */
+    {NULL, "\033[01;34m"}, /* blue */
     {NULL, "\033[01;37m"}, /* white */
     {NULL, "\033[01;35m"}, /* magenta */
     {NULL, "\033[01;36m"}, /* cyan */

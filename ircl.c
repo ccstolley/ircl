@@ -12,6 +12,8 @@ static int nick_count = 0;
 static int is_away = 0;
 static const char *active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
 static const char *log_file_path = NULL;
+static bool use_ssl = false;
+static SSL *ssl;
 
 static void
 eprint(const char *fmt, ...) {
@@ -48,6 +50,31 @@ dial(char *host, char *port) {
     if(!r)
         eprint("error: cannot connect to host '%s'\n", host);
     return srv;
+}
+
+static void
+ssl_connect(const int sock) {
+    SSL_CTX *ctx;
+    const SSL_METHOD *method;
+    int result = 0;
+
+    SSL_library_init();
+    SSL_load_error_strings(); 
+    method = SSLv23_client_method();
+    ctx = SSL_CTX_new(method); 
+    if (ctx  == NULL)
+        eprint("Unable to initialize SSL context");
+    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+    ssl = SSL_new(ctx);
+    if (ssl  == NULL)
+        eprint("Unable to initialize SSL struct");
+    SSL_set_fd(ssl, sock);
+
+    if (1 != SSL_connect(ssl)) {
+        eprint("Unable to connect over SSL (err=%d)", SSL_get_error(ssl, result));
+    }
+//    SSL_free(ssl);
+    SSL_CTX_free(ctx);
 }
 
 #define strlcpy _strlcpy
@@ -112,8 +139,10 @@ initialize_logging(const char *log_file) {
     printf("Logging to %s\n", log_file_path);
     if (0 != access(log_file_path, R_OK|W_OK)) {
         if (errno == ENOENT) {
+            char *lfp_dup = strdup(log_file_path);
             const char *dir_path = dirname(log_file_path);
             if (dir_path && (0 == access(dir_path, R_OK|W_OK))) {
+                free(lfp_dup);
                 return;
             }
         }
@@ -201,7 +230,7 @@ add_channel(const char *channel) {
             return;
         }
     }
-    pout("ircl", "Error: Maximum channels reached; can't join.");
+    pout("ircl", "Error: Maximum (%d) channels reached; can't join.", MAX_CHANNELS);
 }
 
 static void
@@ -251,12 +280,17 @@ update_prompt(const char *channel) {
 static void
 sout(char *fmt, ...) {
     va_list ap;
+    int len = 0;
 
     va_start(ap, fmt);
-    vsnprintf(bufout, sizeof bufout, fmt, ap);
+    len = vsnprintf(bufout, sizeof bufout, fmt, ap);
     va_end(ap);
-/*    fprintf(stdout, "\nSRV: '%s'<END>\n", bufout);*/
-    fprintf(srv, "%s\r\n", bufout);
+/*    fprintf(stdout, "\nSRV: '%s'<END>\n", bufout); */
+    if (use_ssl && (SSL_write(ssl, bufout, len) <= 0 || SSL_write(ssl, "\r\n", 2) <= 0)) {
+        eprint("Unable to write over SSL");
+    } else {
+        fprintf(srv, "%s\r\n", bufout);
+    }
 }
 
 static void
@@ -541,7 +575,9 @@ parsesrv(char *cmd) {
             /* eat it */
         } else if (strcmp(cmd, "001") == 0) {
             /* welcome message, make sure correct nick is stored. */
+            skip(par, ' ');  /* strip anything beyond a space */
             strlcpy(default_nick, par, sizeof default_nick);
+            pout(usr, "> is now known as " COLOR_CHANNEL "%s" COLOR_RESET, par);
             insert_nick(par);
         } else if (strcmp(cmd, "366") == 0) {
             /* end of names list, do nothing */
@@ -647,11 +683,13 @@ main(int argc, char *argv[]) {
             break;
         case 'v':
             eprint("ircl-"VERSION"\n");
+        case 's':
+            use_ssl = true;
         case 'l':
             if(++i < argc) initialize_logging(argv[i]);
             break;
         default:
-            eprint("usage: ircl [-h host] [-p port] [-l log file] [-n nick] [-k keyword] [-v]\n");
+            eprint("usage: ircl [-h host] [-p port] [-s] [-l log file] [-n nick] [-k keyword] [-v]\n");
         }
     }
     if (!log_file_path) {
@@ -659,20 +697,26 @@ main(int argc, char *argv[]) {
     }
     /* init */
     i = dial(host, port);
+    if (use_ssl) {
+        ssl_connect(i);
+    }
     srv = fdopen(i, "r+");
     /* login */
     if(password)
         sout("PASS %s", password);
     sout("NICK %s", default_nick);
     sout("USER %s localhost %s :%s", default_nick, host, default_nick);
-    fflush(srv);
+    if (!use_ssl) {
+        fflush(srv);
+        setbuf(srv, NULL);
+    }
     setbuf(stdout, NULL);
-    setbuf(srv, NULL);
     initialize_readline();
     for(;;) { /* main loop */
         FD_ZERO(&rd);
         FD_SET(0, &rd);
         FD_SET(fileno(srv), &rd);
+        tv.tv_sec = 120; /* fuckin linux resets this */
         i = select(fileno(srv) + 1, &rd, 0, 0, &tv);
         if(i < 0) {
             if(errno == EINTR)
@@ -686,9 +730,36 @@ main(int argc, char *argv[]) {
             continue;
         }
         if(FD_ISSET(fileno(srv), &rd)) {
-            if(fgets(bufin, sizeof bufin, srv) == NULL)
-                eprint("ircl: remote host closed connection\n");
-            parsesrv(bufin);
+            if (use_ssl) {
+                char *cmd, *ptr, *end;
+                i = SSL_read(ssl, bufin, sizeof bufin - 1);
+                if (i <= 0 ) {
+                    eprint("Unable to read over SSL (err=%d)", SSL_get_error(ssl, i));
+                }
+                
+                ptr = cmd = bufin;
+                end = bufin + i;
+                *end = '\0';
+                while(ptr < end) {
+                    if (*ptr == '\r') {
+                        *ptr = '\0';
+                    }
+                    else if (*ptr == '\n') {
+                        *ptr = '\0';
+                        parsesrv(cmd);
+                        cmd = ptr + 1;
+                    } 
+                    ptr++;
+                }
+                if (cmd != ptr) {
+                    fprintf(stderr, "INCOMPLETE CMD: %s\n", ptr);
+                }
+            } else {
+                if(fgets(bufin, sizeof bufin, srv) == NULL) {
+                    eprint("ircl: remote host closed connection\n");
+                }
+                parsesrv(bufin);
+            }
             trespond = time(NULL);
         }
         if(FD_ISSET(0, &rd)) {
