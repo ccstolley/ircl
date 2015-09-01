@@ -60,7 +60,7 @@ ssl_connect(const int sock) {
 
     SSL_library_init();
     SSL_load_error_strings(); 
-    method = SSLv23_client_method();
+    method = TLSv1_2_client_method();
     ctx = SSL_CTX_new(method); 
     if (ctx  == NULL)
         eprint("Unable to initialize SSL context");
@@ -140,7 +140,7 @@ initialize_logging(const char *log_file) {
     if (0 != access(log_file_path, R_OK|W_OK)) {
         if (errno == ENOENT) {
             char *lfp_dup = strdup(log_file_path);
-            const char *dir_path = dirname(log_file_path);
+            const char *dir_path = dirname(lfp_dup);
             if (dir_path && (0 == access(dir_path, R_OK|W_OK))) {
                 free(lfp_dup);
                 return;
@@ -283,11 +283,16 @@ sout(char *fmt, ...) {
     int len = 0;
 
     va_start(ap, fmt);
-    len = vsnprintf(bufout, sizeof bufout, fmt, ap);
+    len = vsnprintf(bufout, sizeof(bufout), fmt, ap);
     va_end(ap);
 /*    fprintf(stdout, "\nSRV: '%s'<END>\n", bufout); */
-    if (use_ssl && (SSL_write(ssl, bufout, len) <= 0 || SSL_write(ssl, "\r\n", 2) <= 0)) {
-        eprint("Unable to write over SSL");
+    if (use_ssl) {
+        char *full_bufout = malloc(len + 3);
+        len = snprintf(full_bufout, len + 3, "%s\r\n", bufout);
+        if (SSL_write(ssl, full_bufout, len) <= 0 ) {
+            eprint("Unable to write over SSL");
+        }
+        free(full_bufout);
     } else {
         fprintf(srv, "%s\r\n", bufout);
     }
@@ -716,10 +721,11 @@ main(int argc, char *argv[]) {
         FD_ZERO(&rd);
         FD_SET(0, &rd);
         FD_SET(fileno(srv), &rd);
-        tv.tv_sec = 120; /* fuckin linux resets this */
         i = select(fileno(srv) + 1, &rd, 0, 0, &tv);
+        tv.tv_sec = 120; /* fuckin linux resets this */
+        tv.tv_usec = 0; /* fuckin linux resets this */
         if(i < 0) {
-            if(errno == EINTR)
+            if(errno == EINTR || errno == EAGAIN)
                 continue;
             eprint("ircl: error on select():");
         }
@@ -732,17 +738,20 @@ main(int argc, char *argv[]) {
         if(FD_ISSET(fileno(srv), &rd)) {
             if (use_ssl) {
                 char *cmd, *ptr, *end;
-                i = SSL_read(ssl, bufin, sizeof bufin - 1);
+                i = SSL_read(ssl, bufin, sizeof(bufin) - 1);
                 if (i <= 0 ) {
                     eprint("Unable to read over SSL (err=%d)", SSL_get_error(ssl, i));
                 }
-                
                 ptr = cmd = bufin;
                 end = bufin + i;
                 *end = '\0';
                 while(ptr < end) {
                     if (*ptr == '\r') {
                         *ptr = '\0';
+                        if (*(ptr + 1) != '\n') { // accept only CR as EOM
+                            parsesrv(cmd);
+                            cmd = ptr + 1;
+                        }
                     }
                     else if (*ptr == '\n') {
                         *ptr = '\0';
@@ -752,7 +761,7 @@ main(int argc, char *argv[]) {
                     ptr++;
                 }
                 if (cmd != ptr) {
-                    fprintf(stderr, "INCOMPLETE CMD: %s\n", ptr);
+                    fprintf(stderr, "INCOMPLETE CMD: '%s'\n", cmd);
                 }
             } else {
                 if(fgets(bufin, sizeof bufin, srv) == NULL) {
