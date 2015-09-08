@@ -32,6 +32,7 @@
 #ifndef PATH_MAX
   #define PATH_MAX 1024
 #endif
+#define MAX_HISTORY 4096
 
 
 int insert_nick(const char *nick);
@@ -52,6 +53,7 @@ static void add_channel(const char *);
 static void remove_channel(const char *);
 static const char* channel_color(const char *);
 static void ssl_connect(const int);
+static void add_msg_history(const char *, const char *);
 
 /* command handlers */
 struct command_handler {
@@ -62,6 +64,7 @@ struct command_handler {
 static void handle_help();
 static void handle_who_channel(const char*);
 static void handle_join(const char*);
+static void handle_last(const char*);
 static void handle_part(const char*);
 static void handle_who_all();
 static void handle_msg(const char*);
@@ -74,6 +77,7 @@ const struct command_handler command_map[] = {
     { "g", "away", handle_away},
     { "h", "help", handle_help},
     { "j", "join", handle_join},
+    { "l", "last", handle_last},
     { "p", "part", handle_part},
     { "m", "msg", handle_msg},
     { "a", "me", handle_me},
@@ -109,3 +113,12 @@ struct irc_channel active_channels[] = {
 };
 const int MAX_CHANNELS = sizeof(active_channels)/sizeof(struct irc_channel);
 const char** usernames;
+
+/* stores messaging history */
+typedef struct hist_elem {
+    SIMPLEQ_ENTRY(hist_elem) entries;
+    char *msg;
+    char *channel;
+} *hist_elem;
+SIMPLEQ_HEAD(hist_head, hist_elem) hist_head = SIMPLEQ_HEAD_INITIALIZER(hist_head);
+int hist_size = 0;

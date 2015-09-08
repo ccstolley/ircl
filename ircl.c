@@ -115,6 +115,9 @@ initialize_logging(const char *log_file) {
     const char *default_name = ".ircllog";
     const char *base_path;
     int log_file_path_len = 0;
+
+    SIMPLEQ_INIT(&hist_head); /* initialize history queue */
+
     if (!log_file) {
         base_path = getenv("HOME");
         if (!base_path)
@@ -179,7 +182,7 @@ highlight_user(const char *buf) {
 }
 
 static void
-pout(char *channel, char *fmt, ...) {
+pout(const char *channel, char *fmt, ...) {
     static char timestr[32];
     static char logbuf[4096];
     time_t t;
@@ -210,12 +213,14 @@ pout(char *channel, char *fmt, ...) {
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel,
                    bufout);
     logmsg(logbuf, len);
+    add_msg_history(channel, logbuf);
 
     if (save_prompt) {
         rl_restore_prompt();
         rl_replace_line(saved_line, 0);
         rl_point = saved_point;
         rl_redisplay();
+        rl_resize_terminal();
         free(saved_line);
     }
 }
@@ -344,6 +349,7 @@ handle_help() {
         "\th help   - display this message\n"
         "\tj join   - JOIN <channel>\n"
         "\tp part   - PART [<channel>]\n"
+        "\tl last   - replay last messages from <channel>\n"
         "\tm msg    - PRIVMSG <channel or nick> <msg>\n"
         "\ta me     - ACTION <msg>\n"
         "\ts switch - change channel to <channel> or list channels\n"
@@ -1027,6 +1033,44 @@ stripwhite (char *string) {
 
     return s;
 }
+
+static void
+add_msg_history(const char *channel, const char *message) {
+    hist_elem e;
+    if (hist_size > MAX_HISTORY) {
+        e = SIMPLEQ_FIRST(&hist_head);
+        SIMPLEQ_REMOVE_HEAD(&hist_head, entries);
+        free(e->channel);
+        free(e->msg);
+    } else {
+        hist_size++;
+    }
+    e = malloc(sizeof(struct hist_elem));
+    e->msg = strdup(message);
+    e->channel = strdup(channel);
+    SIMPLEQ_INSERT_TAIL(&hist_head, e, entries);
+}
+
+static void
+handle_last(const char *channel) {
+    hist_elem e;
+    int message_count = 0;
+    if (!channel || !*channel) {
+        pout("ircl", "Must specify a channel to replay.");
+        return;
+    }
+    fprintf(rl_outstream, "\n");
+    SIMPLEQ_FOREACH(e, &hist_head, entries) {
+        if (e != NULL && strncmp(channel, e->channel, strlen(channel)) == 0) {
+            fprintf(rl_outstream, "> %s", e->msg);
+            message_count++;
+            if (message_count > 30) {
+                break;
+            }
+        }
+    }
+}
+
 
 static void
 load_usernames_file() {
