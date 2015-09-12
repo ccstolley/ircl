@@ -1054,7 +1054,6 @@ add_msg_history(const char *channel, const char *message) {
 static void
 handle_last(const char *channel) {
     hist_elem e;
-    int message_count = 0;
     if (!channel || !*channel) {
         pout("ircl", "Must specify a channel to replay.");
         return;
@@ -1063,10 +1062,6 @@ handle_last(const char *channel) {
     SIMPLEQ_FOREACH(e, &hist_head, entries) {
         if (e != NULL && strncmp(channel, e->channel, strlen(channel)) == 0) {
             fprintf(rl_outstream, "> %s", e->msg);
-            message_count++;
-            if (message_count > 30) {
-                break;
-            }
         }
     }
 }
