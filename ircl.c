@@ -2,18 +2,18 @@
 
 static char *host = "localhost";
 static char *port = "6667";
-static char *password;
+static char *password = NULL;
 static char bufout[4096];
 static char default_channel[256];
 static char default_nick[32];
-static FILE *srv;
+static FILE *srv = NULL;
 static char *all_nicks[MAX_NICKS];
 static int nick_count = 0;
 static int is_away = 0;
 static const char *active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
 static const char *log_file_path = NULL;
 static bool use_ssl = false;
-static SSL *ssl;
+static SSL *ssl = NULL;
 
 static void
 eprint(const char *fmt, ...) {
@@ -26,6 +26,22 @@ eprint(const char *fmt, ...) {
     if(fmt[0] && fmt[strlen(fmt) - 1] == ':')
         fprintf(stderr, " %s\n", strerror(errno));
     exit(1);
+}
+
+static void
+eprint_reconnect(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(bufout, sizeof bufout, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "%s", bufout);
+    if(fmt[0] && fmt[strlen(fmt) - 1] == ':')
+        fprintf(stderr, " %s\n", strerror(errno));
+    sleep(1);
+    pout("ircl", "Reconnecting to %s:%s", host, port);
+    remove_all_nicks();
+    login();
 }
 
 static int
@@ -213,7 +229,15 @@ pout(const char *channel, char *fmt, ...) {
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel,
                    bufout);
     logmsg(logbuf, len);
-    add_msg_history(channel, logbuf);
+    if (strcmp(channel, default_nick) == 0) {
+        char *recip = parse_recipient(logbuf);
+        if (recip) {
+            add_msg_history(recip, logbuf);
+            free(recip);
+        }
+    } else {
+        add_msg_history(channel, logbuf);
+    }
 
     if (save_prompt) {
         rl_restore_prompt();
@@ -270,6 +294,17 @@ channel_color(const char *channel) {
 }
 
 static void
+set_default_channel() {
+    strlcpy(default_channel, IRCL_CHANNEL_NAME, sizeof default_channel);
+    update_prompt(default_channel);
+}
+
+static int 
+in_ircl_channel() { 
+    return (*default_channel && (strcmp(IRCL_CHANNEL_NAME, default_channel) == 0));
+}
+
+static void
 update_prompt(const char *channel) {
     char prompt[128];
     snprintf(prompt, sizeof(prompt),
@@ -312,6 +347,16 @@ privmsg(char *channel, char *msg) {
     insert_nick(channel);
     pout(channel, "<" COLOR_OUTGOING "%s" COLOR_RESET"> %s", default_nick, msg);
     sout("PRIVMSG %s :%s", channel, msg);
+}
+
+static int
+is_colon(const int c) {
+    return (c == ':');
+}
+
+static int
+is_space_or_colon(const int c) {
+    return (isspace(c) || is_colon(c));
 }
 
 static int
@@ -366,10 +411,10 @@ static void
 handle_who_channel(const char* args) {
     if (args && *args) {
         sout("WHO %s", args);
-    } else if (default_channel[0] != '\0') {
+    } else if (!in_ircl_channel()) {
         sout("WHO %s", default_channel);
     } else {
-        pout("ircl", "No channel to send to");
+        pout("ircl", "Specify a channel.");
     }
 }
 
@@ -400,10 +445,10 @@ handle_part(const char* args) {
     if (args && *args) {
         sout("PART %s", args);
     } else {
-        if (*default_channel) {
+        if (!in_ircl_channel()) {
             sout("PART %s Peace.", default_channel);
         } else {
-            pout("ircl", "No channel to send to.");
+            pout("ircl", "Specify a channel.");
         }
     }
 }
@@ -433,7 +478,7 @@ handle_me(const char* args) {
         return;
     }
 
-    if (*default_channel) {
+    if (!in_ircl_channel()) {
         sout("PRIVMSG %s \1ACTION %s", default_channel, args);
         pout(default_channel, "* " COLOR_OUTGOING "%s" COLOR_RESET " %s", default_nick, args);
     } else {
@@ -454,6 +499,8 @@ handle_switch(const char* args) {
                 pout("ircl", "    %s%s%s", color, name, COLOR_RESET);
             }
         }
+        strlcpy(default_channel, IRCL_CHANNEL_NAME, sizeof default_channel);
+        update_prompt(default_channel);
     } else {
         char *channel;
         char *msg;
@@ -484,7 +531,25 @@ parsein(char *s) {
         return;
     skip(s, '\n');
     if ((s[0] != '/') || (s[0] == '/' && s[1] == '/' && s++)) {
-        privmsg(default_channel, s);
+
+        if (!in_ircl_channel()) {
+            privmsg(default_channel, s);
+        } else if (strchr(s, ':')) {
+            char *channel = strdup(s);
+            char *msg = eat(channel, is_colon, 0);
+            while (*msg && is_space_or_colon(*msg)) {
+                *msg++ = '\0';
+            }
+            if(*msg) {
+                privmsg(channel, msg);
+            } else {
+                pout("ircl", "Specify a message");
+            }
+            free(channel);
+            channel = NULL;
+        } else {
+            pout("ircl", "Specify a channel");
+        }
         return;
     }
 
@@ -548,15 +613,11 @@ parsesrv(char *cmd) {
             if (!strcmp(usr, default_nick)) {
                 add_channel(channel);
                 pout(usr, "> joined %s%s%s", channel_color(channel), channel, COLOR_RESET);
-                strlcpy(default_channel, channel, sizeof default_channel);
-                update_prompt(default_channel);
+                /* if we joined a room, add it to tab-complete */
+                insert_nick(channel);
             }
             if (nick_is_active(usr)) {
                 pout(usr, "> joined %s%s%s", channel_color(channel), channel, COLOR_RESET);
-            }
-            if (strcmp(channel, default_channel) == 0) {
-                /* if we joined a room, add it */
-                insert_nick(channel);
             }
             insert_nick(usr);
         } else if ((strcmp(cmd, "QUIT") == 0) || (strcmp(cmd, "PART") == 0)) {
@@ -565,8 +626,8 @@ parsesrv(char *cmd) {
                 remove_channel(channel);
                 pout(usr, "> left %s %s", channel, txt);
                 if (!strcmp(channel, default_channel)) {
-                    strlcpy(default_channel, "", 1);
-                    update_prompt("");
+                    strlcpy(default_channel, IRCL_CHANNEL_NAME, sizeof default_channel);
+                    update_prompt(default_channel);
                 }
             } else if (nick_is_active(usr)) {
                 pout(usr, "> left %s %s", channel, txt);
@@ -665,6 +726,36 @@ nick_is_active(const char *nick) {
     return 0;
 }
 
+void
+login() {
+    int i;
+
+    if (srv != NULL) {
+        fclose(srv); // check return value/errno?
+        srv = NULL;
+    }
+    if (ssl != NULL) {
+        SSL_free(ssl);
+        ssl = NULL;
+    }
+    i = dial(host, port);
+    if (use_ssl) {
+        ssl_connect(i);
+    }
+    srv = fdopen(i, "r+");
+    /* login */
+    if(password)
+        sout("PASS %s", password);
+    sout("NICK %s", default_nick);
+    sout("USER %s localhost %s :%s", default_nick, host, default_nick);
+    if (!use_ssl) {
+        fflush(srv);
+        setbuf(srv, NULL);
+    }
+    setbuf(stdout, NULL);
+    set_default_channel();
+}
+
 int
 main(int argc, char *argv[]) {
     int i, c;
@@ -706,23 +797,11 @@ main(int argc, char *argv[]) {
     if (!log_file_path) {
         initialize_logging(NULL);
     }
-    /* init */
-    i = dial(host, port);
-    if (use_ssl) {
-        ssl_connect(i);
-    }
-    srv = fdopen(i, "r+");
-    /* login */
-    if(password)
-        sout("PASS %s", password);
-    sout("NICK %s", default_nick);
-    sout("USER %s localhost %s :%s", default_nick, host, default_nick);
-    if (!use_ssl) {
-        fflush(srv);
-        setbuf(srv, NULL);
-    }
-    setbuf(stdout, NULL);
+
     initialize_readline();
+    /* init */
+    login();
+
     for(;;) { /* main loop */
         FD_ZERO(&rd);
         FD_SET(0, &rd);
@@ -731,13 +810,14 @@ main(int argc, char *argv[]) {
         tv.tv_sec = 120; /* fuckin linux resets this */
         tv.tv_usec = 0; /* fuckin linux resets this */
         if(i < 0) {
-            if(errno == EINTR || errno == EAGAIN)
-                continue;
-            eprint("ircl: error on select():");
+            if (!(errno == EINTR || errno == EAGAIN)) {
+                eprint_reconnect("ircl: error on select():");
+            }
+            continue;
         }
         else if(i == 0) {
             if(time(NULL) - trespond >= 300)
-                eprint("ircl shutting down: parse timeout\n");
+                eprint_reconnect("ircl shutting down: parse timeout\n");
             sout("PING %s", host);
             continue;
         }
@@ -746,7 +826,8 @@ main(int argc, char *argv[]) {
                 char *cmd, *ptr, *end;
                 i = SSL_read(ssl, bufin, sizeof(bufin) - 1);
                 if (i <= 0 ) {
-                    eprint("Unable to read over SSL (err=%d)", SSL_get_error(ssl, i));
+                    eprint_reconnect("Unable to read over SSL (err=%d)\n", SSL_get_error(ssl, i));
+                    continue;
                 }
                 ptr = cmd = bufin;
                 end = bufin + i;
@@ -771,7 +852,8 @@ main(int argc, char *argv[]) {
                 }
             } else {
                 if(fgets(bufin, sizeof bufin, srv) == NULL) {
-                    eprint("ircl: remote host closed connection\n");
+                    eprint_reconnect("ircl: remote host closed connection\n");
+                    continue;
                 }
                 parsesrv(bufin);
             }
@@ -818,10 +900,24 @@ remove_nick(const char *nick) {
             free(all_nicks[i]);
             all_nicks[i] = NULL;
             nick_count--;
+            assert(nick_count >= 0);
             return 1;
         }
     }
     return 0;
+}
+
+void
+remove_all_nicks() {
+    int i;
+    for (i=0; i<MAX_NICKS; i++) {
+        if (all_nicks[i]) {
+            free(all_nicks[i]);
+            all_nicks[i] = NULL;
+            nick_count--;
+            assert(nick_count >= 0);
+        }
+    }
 }
 
 void
@@ -1032,6 +1128,26 @@ stripwhite (char *string) {
     *++t = '\0';
 
     return s;
+}
+
+static char*
+parse_recipient(const char * logbuf) {
+    char *rcp = strstr(logbuf, "<" COLOR_INCOMING);
+    char *ercp = strstr(logbuf, COLOR_RESET ">");
+    char *recip = NULL;
+    int len = 0;
+
+    if (rcp && ercp) {
+        rcp += strlen("<" COLOR_INCOMING);
+        len = ercp - rcp + 1;
+
+        recip = calloc(len + 1, sizeof(char));
+        strlcpy(recip, rcp, len);
+        return recip;
+    } else {
+        return NULL;
+    }
+
 }
 
 static void

@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <assert.h>
 #include <errno.h>
 #include <libgen.h>
 #include <stdarg.h>
@@ -37,15 +38,18 @@
 
 int insert_nick(const char *nick);
 int remove_nick(const char *nick);
+void remove_all_nicks();
 void init_nick(const char *nick);
 char *stripwhite (char *string);
+static void pout(const char *, char *, ...);
 void initialize_readline();
 static char *username_generator(const char *, int);
 static char *nick_generator(const char *, int);
 static char *cmd_generator(const char *, int);
 char **ircl_completion(const char *, int, int);
-void readline_nonblocking_cb(char* line);
+void readline_nonblocking_cb(char*);
 int handle_return_cb();
+static void update_prompt(const char *);
 static void update_active_nicks(const char*);
 static int nick_is_active(const char *);
 static void load_usernames_file();
@@ -54,6 +58,12 @@ static void remove_channel(const char *);
 static const char* channel_color(const char *);
 static void ssl_connect(const int);
 static void add_msg_history(const char *, const char *);
+static void logmsg(const char *msg, const int len);
+static void login();
+static int in_ircl_channel();
+static int is_space_or_colon(const int);
+static char* parse_recipient(const char *);
+
 
 /* command handlers */
 struct command_handler {
@@ -73,6 +83,8 @@ static void handle_switch(const char*);
 static void handle_away(const char*);
 static void handle_quit();
 
+
+const char * IRCL_CHANNEL_NAME = "ircl%";
 const struct command_handler command_map[] = {
     { "g", "away", handle_away},
     { "h", "help", handle_help},
