@@ -357,11 +357,6 @@ is_colon(const int c) {
 }
 
 static int
-is_space_or_colon(const int c) {
-    return (isspace(c) || is_colon(c));
-}
-
-static int
 starts_with_symbol(const char *str) {
     return (str && (str[0] == '#' || str[0] == '&' || str[0] == '@'));
 }
@@ -540,7 +535,8 @@ parsein(char *s) {
         } else if (strchr(s, ':')) {
             char *channel = strdup(s);
             char *msg = eat(channel, is_colon, 0);
-            while (*msg && is_space_or_colon(*msg)) {
+            *msg++ = '\0';
+            while (*msg && isspace(*msg)) {
                 *msg++ = '\0';
             }
             if(*msg) {

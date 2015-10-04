@@ -61,7 +61,6 @@ static void add_msg_history(const char *, const char *);
 static void logmsg(const char *msg, const int len);
 static void login();
 static int in_ircl_channel();
-static int is_space_or_colon(const int);
 static char* parse_recipient(const char *);
 
 
