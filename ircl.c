@@ -129,7 +129,7 @@ trim(char *s) {
 static void
 initialize_logging(const char *log_file) {
     const char *default_name = ".ircllog";
-    const char *base_path;
+    char *base_path;
     int log_file_path_len = 0;
 
     SIMPLEQ_INIT(&hist_head); /* initialize history queue */
@@ -150,6 +150,7 @@ initialize_logging(const char *log_file) {
             log_file_path = calloc(log_file_path_len, sizeof(char));
             snprintf((char*)log_file_path, log_file_path_len, "%s/%s", base_path,
                  log_file);
+            free(base_path);
         } else {
             log_file_path = strdup(log_file);
         }
@@ -194,6 +195,7 @@ highlight_user(const char *buf) {
         snprintf(tmp_buf, buf_len, "%s%s%s: %s", COLOR_PM_INCOMING,
                  default_nick, COLOR_RESET, buf + nick_buf_len - 1);
     }
+    free(nick_buf);
     return tmp_buf;
 }
 
@@ -931,11 +933,13 @@ init_nicks() {
 
 void
 initialize_readline () {
+    char *complete = strdup("TAB:menu-complete");
     rl_readline_name = "ircl";
     rl_attempted_completion_function = ircl_completion;
 
     /* don't display matches, just complete them in place */
-    rl_parse_and_bind(strdup("TAB:menu-complete"));
+    rl_parse_and_bind(complete); /* can't supply a string literal here */
+    free(complete);
 
     /* remove '@&' from defaults */
     rl_completer_word_break_characters = " \t\n\"\\'`$><=;|{(";
@@ -964,6 +968,7 @@ handle_return_cb() {
     }
 
     parsein(line);
+    free(line);
 
     /* erase prior prompt */
     prompt_len = strlen(rl_prompt) - 17; /* subtract color escape codes */
