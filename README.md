@@ -39,7 +39,10 @@ Usage
 -----
 From the command line:
 ```
-usage: ircl [-h host] [-p port] [-l log file] [-n nick] [-k keyword] [-v]
+usage: ircl [-h host] [-p port] [-s] [-l log file] [-n nick] [-k password] [-v]
+
+  -s Enable SSL
+  -v Verbose
 ```
 
 The following commands (each beginning with the usual "/") are supported:
@@ -48,13 +51,22 @@ The following commands (each beginning with the usual "/") are supported:
         h help   - display this message
         j join   - JOIN <channel>
         p part   - PART [<channel>]
+        l last   - replay last messages from <channel>
         m msg    - PRIVMSG <channel or nick> <msg>
         a me     - ACTION <msg>
-        s switch - change channel to <channel> or list channels
+        s switch - change channel to <channel> or list channels and return to default
         w who    - WHO [<channel>]
         W whoa   - WHO *
         Q quit   - quit
 ```
+
+Upon successful login, you enter the `ircl% ` channel, which is a command-only channel.
+
+- To join a room, use the `/j` command.
+- To send a message to a user or channel, just start typing the name
+  and hit TAB. Then enter the message.
+- To direct all outgoing messages to a particular user or channel, use
+  `/s` to switch the default channel.
 
 Screen Snapshot
 ---------------
@@ -68,8 +80,7 @@ Stop by #ircl on irc.foonetic.net and ask your question!
 Future plans
 ------------
 
-- add command scripting
-- support a `/last` command
-- improved internal management of nicks and tab-completion
-- editline/libedit support
+- replace libreadline with editline/libedit/linenoise
+- improved internal management of nicks, tab-completion and message history
+- command scripting
 - who knows? Lodge an issue if you have ideas!

@@ -399,7 +399,7 @@ handle_help() {
         "\tl last   - replay last messages from <channel>\n"
         "\tm msg    - PRIVMSG <channel or nick> <msg>\n"
         "\ta me     - ACTION <msg>\n"
-        "\ts switch - change channel to <channel> or list channels\n"
+        "\ts switch - change channel to <channel> or list channels and return to default\n"
         "\tw who    - WHO [<channel>]\n"
         "\tW whoa   - WHO *\n"
         "\tQ quit   - quit\n"
@@ -522,6 +522,7 @@ handle_switch(const char* args) {
 static void
 handle_quit() {
     sout("QUIT Peace.");
+    exit(0);
 }
 
 static void
@@ -793,7 +794,7 @@ main(int argc, char *argv[]) {
             if(++i < argc) initialize_logging(argv[i]);
             break;
         default:
-            eprint("usage: ircl [-h host] [-p port] [-s] [-l log file] [-n nick] [-k keyword] [-v]\n");
+            eprint("usage: ircl [-h host] [-p port] [-s] [-l log file] [-n nick] [-k password] [-v]\n");
         }
     }
     if (!log_file_path) {
