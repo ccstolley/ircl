@@ -310,10 +310,18 @@ static void
 update_prompt(const char *channel) {
     char sep = '>';
     char prompt[128];
+    const char *color = channel_color(channel);
     if (is_away) {
         sep = '*';
     }
-    snprintf(prompt, sizeof(prompt), "%s" "%c ", channel, sep);
+    if (in_ircl_channel()) {
+        color = COLOR_IRCL_CHANNEL;
+    }
+    snprintf(prompt, sizeof(prompt),
+             "%c" "%s" "%c" "%s" "%c" COLOR_RESET "%c" "%c ",
+             RL_PROMPT_START_IGNORE, color, RL_PROMPT_END_IGNORE,
+             channel, RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE,
+             (is_away) ? '*' : '>');
     rl_set_prompt(prompt);
     rl_on_new_line_with_prompt();
     rl_redisplay();
@@ -968,15 +976,35 @@ handle_return_cb() {
     free(line);
 
     /* erase prior prompt */
-    prompt_len = strlen(rl_prompt) - 17; /* subtract color escape codes */
+    prompt_len = get_cursor_pos(fileno(stdin), fileno(stdout));
     if (prompt_len < 0) {
-        /* unless there are no escape codes */
+        /* failsafe */
         prompt_len = strlen(rl_prompt);
     }
     for (i=0; i < prompt_len; i++) {
         fprintf(rl_outstream, "\b \b");
     }
     return 0;
+}
+
+static int 
+get_cursor_pos(int input_fd, int output_fd) {
+    char buf[32];
+    int escape = 27, cols, rows;
+    unsigned int i = 0;
+
+    if (write(output_fd, "\x1b[6n", 4) != 4) return -1;
+
+    while (i < sizeof(buf) - 1) {
+        if (read(input_fd, buf + i, 1) != 1) break;
+        if (buf[i] == 'R') break;
+        i++;
+    }
+    buf[i] = '\0';
+
+    if (buf[0] != escape || buf[1] != '[') return -1;
+    if (sscanf(buf + 2, "%d;%d", &rows, &cols) != 2) return -1;
+    return cols;
 }
 
 void

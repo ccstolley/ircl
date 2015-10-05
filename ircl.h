@@ -29,11 +29,17 @@
 #define COLOR_INCOMING "\033[00;32m"
 #define COLOR_PM_INCOMING "\033[01;31m"
 #define COLOR_CHANNEL "\033[07;34m"
+#define COLOR_IRCL_CHANNEL "\033[33;1m"
 #define COLOR_PROMPT "\033[00;33m"
 #ifndef PATH_MAX
   #define PATH_MAX 1024
 #endif
 #define MAX_HISTORY 4096
+
+#ifndef getline
+ssize_t  getline(char ** __restrict, size_t * __restrict,
+                FILE * __restrict);
+#endif
 
 
 int insert_nick(const char *nick);
@@ -62,6 +68,7 @@ static void logmsg(const char *msg, const int len);
 static void login();
 static int in_ircl_channel();
 static char* parse_recipient(const char *);
+static int get_cursor_pos(int input_fd, int output_fd);
 
 
 /* command handlers */
