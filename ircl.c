@@ -320,8 +320,7 @@ update_prompt(const char *channel) {
     snprintf(prompt, sizeof(prompt),
              "%c" "%s" "%c" "%s" "%c" COLOR_RESET "%c" "%c ",
              RL_PROMPT_START_IGNORE, color, RL_PROMPT_END_IGNORE,
-             channel, RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE,
-             (is_away) ? '*' : '>');
+             channel, RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE, sep);
     rl_set_prompt(prompt);
     rl_on_new_line_with_prompt();
     rl_redisplay();
@@ -976,6 +975,7 @@ handle_return_cb() {
     free(line);
 
     /* erase prior prompt */
+    fprintf(rl_outstream, "   ");
     prompt_len = get_cursor_pos(fileno(stdin), fileno(stdout));
     if (prompt_len < 0) {
         /* failsafe */
