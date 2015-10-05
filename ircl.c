@@ -426,10 +426,8 @@ static void
 handle_away(const char* args) {
     if (args && *args) {
         sout("AWAY %s", args);
-        is_away = 1;
     } else {
         sout("AWAY");
-        is_away = 0;
     }
     update_prompt(default_channel);
 }
@@ -685,6 +683,16 @@ parsesrv(char *cmd) {
                 insert_nick(client);
                 client = strtok(NULL, " ");
             }
+        } else if (strcmp(cmd, "306") == 0) {
+            /* away */
+            is_away = 1;
+            update_prompt(default_channel);
+            pout(usr, "AWAY: %s", txt);
+        } else if (strcmp(cmd, "305") == 0) {
+            /* not away */
+            is_away = 0;
+            update_prompt(default_channel);
+            pout(usr, "BACK: %s", txt);
         } else {
             pout(usr, ">< %s (%s): %s", cmd, par, txt);
         }
