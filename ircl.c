@@ -10,6 +10,7 @@ static FILE *srv = NULL;
 static char *all_nicks[MAX_NICKS];
 static int nick_count = 0;
 static int is_away = 0;
+static int previous_prompt_len = 0;
 static const char *active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
 static const char *log_file_path = NULL;
 static bool use_ssl = false;
@@ -41,6 +42,7 @@ eprint_reconnect(const char *fmt, ...) {
     sleep(1);
     pout("ircl", "Reconnecting to %s:%s", host, port);
     remove_all_nicks();
+    remove_all_channels();
     login();
 }
 
@@ -280,6 +282,20 @@ remove_channel(const char *channel) {
     fprintf(stderr, "ERROR: Unable to remove channel %s\n", channel);
 }
 
+static void
+remove_all_channels() {
+    short i=0;
+    const char *name;
+
+    for (i=0; i<MAX_CHANNELS; i++) {
+        name = active_channels[i].name;
+        if (name) {
+            free((char*)name);
+            active_channels[i].name = NULL;
+        }
+    }
+}
+
 static const char*
 channel_color(const char *channel) {
     short i=0;
@@ -310,17 +326,11 @@ static void
 update_prompt(const char *channel) {
     char sep = '>';
     char prompt[128];
-    const char *color = channel_color(channel);
     if (is_away) {
         sep = '*';
     }
-    if (in_ircl_channel()) {
-        color = COLOR_IRCL_CHANNEL;
-    }
-    snprintf(prompt, sizeof(prompt),
-             "%c" "%s" "%c" "%s" "%c" COLOR_RESET "%c" "%c ",
-             RL_PROMPT_START_IGNORE, color, RL_PROMPT_END_IGNORE,
-             channel, RL_PROMPT_START_IGNORE, RL_PROMPT_END_IGNORE, sep);
+    snprintf(prompt, sizeof(prompt), "%s%c ", channel, sep);
+    previous_prompt_len = strlen(rl_prompt); /* for future redraw */
     rl_set_prompt(prompt);
     rl_on_new_line_with_prompt();
     rl_redisplay();
@@ -965,33 +975,32 @@ initialize_readline () {
 
 int
 handle_return_cb() {
-    char* line = NULL;
+    char* line = NULL, *ln = NULL;
     int i = 0, prompt_len = 0;
 
     rl_done = 1;
 
-    line = rl_copy_text(0, rl_end);
-    line = stripwhite(line);
+    ln = rl_copy_text(0, rl_end);
+    line = stripwhite(ln);
     rl_replace_line("", 1);
-    rl_redisplay();
 
     if (line && *line) {
         add_history(line);
     }
 
     parsein(line);
-    free(line);
+    free(ln);
 
     /* erase prior prompt */
-    fprintf(rl_outstream, "   ");
-    prompt_len = get_cursor_pos(fileno(stdin), fileno(stdout));
-    if (prompt_len < 0) {
-        /* failsafe */
-        prompt_len = strlen(rl_prompt);
+    prompt_len = strlen(rl_prompt);
+    if (prompt_len != previous_prompt_len) {
+        previous_prompt_len = prompt_len;
+        prompt_len = get_cursor_pos(fileno(stdin), fileno(stdout)) - 1;
     }
     for (i=0; i < prompt_len; i++) {
         fprintf(rl_outstream, "\b \b");
     }
+    rl_redisplay();
     return 0;
 }
 

@@ -35,6 +35,7 @@
   #define PATH_MAX 1024
 #endif
 #define MAX_HISTORY 4096
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 #ifndef getline
 ssize_t  getline(char ** __restrict, size_t * __restrict,
@@ -61,6 +62,7 @@ static int nick_is_active(const char *);
 static void load_usernames_file();
 static void add_channel(const char *); 
 static void remove_channel(const char *);
+static void remove_all_channels();
 static const char* channel_color(const char *);
 static void ssl_connect(const int);
 static void add_msg_history(const char *, const char *);
