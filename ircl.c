@@ -526,6 +526,7 @@ handle_switch(const char* args) {
         strlcpy(default_channel, channel, sizeof default_channel);
         free(channel);
         update_prompt(default_channel);
+        pout("ircl", "-> %s%s%s", channel_color(default_channel), default_channel, COLOR_RESET);
     }
 }
 
