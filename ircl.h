@@ -35,6 +35,7 @@
   #define PATH_MAX 1024
 #endif
 #define MAX_HISTORY 4096
+#define MAX_NICK_LENGTH 32
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 #ifndef getline

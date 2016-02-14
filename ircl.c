@@ -5,7 +5,7 @@ static char *port = "6667";
 static char *password = NULL;
 static char bufout[4096];
 static char default_channel[256];
-static char default_nick[32];
+static char default_nick[MAX_NICK_LENGTH];
 static FILE *srv = NULL;
 static char *all_nicks[MAX_NICKS];
 static int nick_count = 0;
@@ -89,9 +89,9 @@ ssl_connect(const int sock) {
     SSL_set_fd(ssl, sock);
 
     if (1 != SSL_connect(ssl)) {
-        eprint("Unable to connect over SSL (err=%d)", SSL_get_error(ssl, result));
+        eprint("Unable to connect over SSL (err=%d)",
+               SSL_get_error(ssl, result));
     }
-//    SSL_free(ssl);
     SSL_CTX_free(ctx);
 }
 
@@ -183,21 +183,19 @@ logmsg(const char *msg, const int len) {
 
 static char*
 highlight_user(const char *buf) {
-    int nick_buf_len = 0, buf_len = 0;
+    int buf_len = 0, nick_str_len = 0;
+    char nick_buf[MAX_NICK_LENGTH + 3];
     char *tmp_buf = NULL;
-    char *nick_buf = NULL;
 
-    nick_buf_len = strlen(default_nick) + 3;
-    nick_buf = calloc(nick_buf_len, sizeof(char));
-    snprintf(nick_buf, nick_buf_len, "%s: ", default_nick);
+    nick_str_len = snprintf(nick_buf, sizeof nick_buf, "%s: ",
+                            default_nick);
 
-    if (!strncmp(buf, nick_buf, nick_buf_len - 1)) {
+    if (!strncmp(buf, nick_buf, nick_str_len)) {
         buf_len = strlen(buf) + strlen(COLOR_PM_INCOMING COLOR_RESET) + 1;
         tmp_buf = calloc(buf_len, sizeof(char));
         snprintf(tmp_buf, buf_len, "%s%s%s: %s", COLOR_PM_INCOMING,
-                 default_nick, COLOR_RESET, buf + nick_buf_len - 1);
+                 default_nick, COLOR_RESET, buf + nick_str_len);
     }
-    free(nick_buf);
     return tmp_buf;
 }
 
@@ -233,7 +231,7 @@ pout(const char *channel, char *fmt, ...) {
     len = snprintf(logbuf, sizeof(logbuf), "%s : %s %s\n", timestr, channel,
                    bufout);
     logmsg(logbuf, len);
-    if (strcmp(channel, default_nick) == 0) {
+    if (!strcmp(channel, default_nick)) {
         char *recip = parse_recipient(logbuf);
         if (recip) {
             add_msg_history(recip, logbuf);
@@ -268,13 +266,13 @@ add_channel(const char *channel) {
 
 static void
 remove_channel(const char *channel) {
-    short i=0;
-    const char *name;
+    short i = 0;
+    char *name = NULL;
 
     for (i=0; i<MAX_CHANNELS; i++) {
-        name = active_channels[i].name;
+        name = (char*)active_channels[i].name;
         if (name && !strcmp(name, channel)) {
-            free((char*)name);
+            free(name);
             active_channels[i].name = NULL;
             return;
         }
@@ -284,13 +282,13 @@ remove_channel(const char *channel) {
 
 static void
 remove_all_channels() {
-    short i=0;
-    const char *name;
+    short i = 0;
+    char *name = NULL;
 
     for (i=0; i<MAX_CHANNELS; i++) {
-        name = active_channels[i].name;
+        name = (char*)active_channels[i].name;
         if (name) {
-            free((char*)name);
+            free(name);
             active_channels[i].name = NULL;
         }
     }
@@ -319,7 +317,8 @@ set_default_channel() {
 
 static int 
 in_ircl_channel() { 
-    return (*default_channel && (strcmp(IRCL_CHANNEL_NAME, default_channel) == 0));
+    return (*default_channel &&
+            (!strcmp(IRCL_CHANNEL_NAME, default_channel)));
 }
 
 static void
@@ -380,24 +379,19 @@ starts_with_symbol(const char *str) {
 
 static int
 match_command(const char *cmd_name, const char *str) {
-    char * cmd = NULL;
-    int cmd_len = 0;
-    int result = 0;
+    size_t cmd_len = 0;
 
-    cmd_len = strlen(cmd_name) + 3; /* '/' + space + nul */
-    cmd = malloc(cmd_len);
+    cmd_len = strlen(cmd_name);
 
-
-    /* check if it's the cmd + space */
-    snprintf(cmd, cmd_len, "/%s ", cmd_name);
-    result = !strncmp(cmd, str, cmd_len - 1);
-
-    /* check if it's just the cmd, no args */
-    cmd[cmd_len - 2] = '\0';
-    result |= !strcmp(cmd, str);
-
-    free(cmd);
-    return result;
+    if (!strcmp(cmd_name, str)) {
+        return 1;
+    } else if (strlen(str) < (cmd_len + 1)) {
+        return 0;
+    } else if (str[0] == '/') {
+        return (!strncmp(cmd_name, str + 1, cmd_len) &&
+                (str[cmd_len + 1] == ' ' || (str[cmd_len + 1] == '\0')));
+    }
+    return 0;
 }
 
 
