@@ -1048,13 +1048,9 @@ ircl_completion(const char *text, int start, int end) {
         text++;
         matches = rl_completion_matches(text, cmd_generator);
     } else {
-        if (text[0] == '@') {
-            matches = rl_completion_matches(text, username_generator);
-        } else {
+        matches = rl_completion_matches(text, username_generator);
+        if (!matches) {
             matches = rl_completion_matches(text, nick_generator);
-            if (!matches && text[0] != '@') {
-                matches = rl_completion_matches(text, username_generator);
-            }
         }
     }
     return matches;
@@ -1118,10 +1114,13 @@ nick_generator(const char *text, int state) {
   static int list_index = 0, len = 0;
   const char *fullnick;
   const char *name;
+  const char *_text;
+
+  _text = starts_with_symbol(text) ? text + 1 : text;
 
   if (!state) {
       list_index = 0;
-      len = strlen (text);
+      len = strlen (_text);
   }
 
   for (; list_index < MAX_NICKS;) {
@@ -1129,23 +1128,31 @@ nick_generator(const char *text, int state) {
       fullnick = name;
       
       list_index++;
-      if (name && !starts_with_symbol(text) && starts_with_symbol(name)) {
+      if (name && starts_with_symbol(name)) {
           /* skip prefixes like @person and #jerks */
           name++;
       }
 
-      if (name && strncasecmp(name, text, len) == 0) {
+      if (name && strncasecmp(name, _text, len) == 0) {
           if (rl_point == len) {
               /* completing a nick at the beginning of a line, so
                * append a colon:*/
 
               char *nick_with_colon;
-              int sz;
+              size_t sz;
 
               sz = strlen(fullnick) + 2;
               nick_with_colon = calloc(sz, sizeof(char));
               snprintf(nick_with_colon, sz, "%s:", fullnick);
               return nick_with_colon;
+          } else if (starts_with_symbol(text)) {
+              /* add symbol to selection */
+              char *nick_with_symbol;
+              size_t sz;
+              sz = strlen(name) + 2;
+              nick_with_symbol = malloc(sz);
+              snprintf(nick_with_symbol, sz, "%c%s", text[0], name);
+              return nick_with_symbol;
           } else {
               return strdup(fullnick);
           }
