@@ -7,7 +7,8 @@ static char bufout[4096];
 static char default_channel[256];
 static char default_nick[MAX_NICK_LENGTH];
 static FILE *srv = NULL;
-static char *all_nicks[MAX_NICKS];
+static char **all_nicks = NULL;
+static int all_nicks_size= 0;
 static int nick_count = 0;
 static int is_away = 0;
 static int previous_prompt_len = 0;
@@ -887,34 +888,38 @@ main(int argc, char *argv[]) {
 
 int
 insert_nick(const char *nick) {
-    int i;
-    int next_available = -1;
+    int i = 0, next_available = -1;
 
-    for (i=0; i<MAX_NICKS; i++) {
+    if (nick_count == all_nicks_size) {
+        int new_sz = all_nicks_size + 100;
+        all_nicks = recallocarray(all_nicks, all_nicks_size, new_sz, sizeof(char*));
+        if (all_nicks == NULL) {
+            err(1, NULL);
+        }
+        all_nicks_size = new_sz;
+    }
+
+    for (i=0; i<all_nicks_size; i++) {
         if (all_nicks[i] == NULL) {
             next_available = i;
-            break;
         } else if (strcasecmp(all_nicks[i], nick) == 0) {
             /* duplicate found, so skip */
             return 0;
         }   
     }
-    if (next_available != -1) {
-        all_nicks[next_available] = strdup(nick);
-        nick_count++;
-        return 1;
-    } else {
-        fprintf(stderr, "ERROR: Out of space in activenicks (%d)!\n",
-            nick_count);
-        return -1;
-    }   
+
+    assert(next_available > -1);
+
+    all_nicks[next_available] = strdup(nick);
+    nick_count++;
+    return 1;
 }
 
 int
 remove_nick(const char *nick) {
     int i;
 
-    for (i=0; i<MAX_NICKS; i++) {
+    for (i=0; i<all_nicks_size; i++) {
         if (all_nicks[i] && strcasecmp(all_nicks[i], nick) == 0) {
             free(all_nicks[i]);
             all_nicks[i] = NULL;
@@ -929,7 +934,7 @@ remove_nick(const char *nick) {
 void
 remove_all_nicks() {
     int i;
-    for (i=0; i<MAX_NICKS; i++) {
+    for (i=0; i<all_nicks_size; i++) {
         if (all_nicks[i]) {
             free(all_nicks[i]);
             all_nicks[i] = NULL;
@@ -937,15 +942,9 @@ remove_all_nicks() {
             assert(nick_count >= 0);
         }
     }
-}
-
-void
-init_nicks() {
-    int i;
-
-    for (i=0; i<MAX_NICKS; i++) {
-        all_nicks[i] = NULL;
-    }
+    free(all_nicks);
+    all_nicks = NULL;
+    all_nicks_size = 0;
 }
 
 void
@@ -964,7 +963,6 @@ initialize_readline () {
     if (rl_bind_key(RETURN, handle_return_cb)) {
         eprint("failed to bind RETURN key");
     }
-    init_nicks();
     load_usernames_file();
 }
 
@@ -1124,7 +1122,7 @@ nick_generator(const char *text, int state) {
       len = strlen (text);
   }
 
-  for (; list_index < MAX_NICKS;) {
+  for (; list_index < all_nicks_size;) {
       name = all_nicks[list_index];
       fullnick = name;
       

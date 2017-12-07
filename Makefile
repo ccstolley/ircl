@@ -1,7 +1,7 @@
 VERSION = 1.0
 PREFIX = /usr/local
 
-INCS_ALL = -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED -D_DEFAULT_SOURCE -D_POSIX_SOURCE -I. -I/usr/include 
+INCS_ALL = -I/usr/include
 LIBS_ALL = -L/usr/lib -lc -lssl -lcrypto -lncurses -ltermcap -lreadline
 
 INCS = ${INCS_ALL}
