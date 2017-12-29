@@ -777,116 +777,6 @@ login() {
 }
 
 int
-main(int argc, char *argv[]) {
-    int i, c;
-    time_t trespond = 0;
-    struct timeval tv = {120, 0};
-    const char *user = getenv("USER");
-    char bufin[4096];
-    fd_set rd;
-
-    strlcpy(default_nick, user ? user : "unknown", sizeof default_nick);
-    for(i = 1; i < argc; i++) {
-        c = argv[i][1];
-        if(argv[i][0] != '-' || argv[i][2])
-            c = -1;
-        switch(c) {
-        case 'h':
-            if(++i < argc) host = argv[i];
-            break;
-        case 'p':
-            if(++i < argc) port = argv[i];
-            break;
-        case 'n':
-            if(++i < argc) strlcpy(default_nick, argv[i], sizeof default_nick);
-            break;
-        case 'k':
-            if(++i < argc) password = argv[i];
-            break;
-        case 'v':
-            eprint("ircl-"VERSION"\n");
-        case 's':
-            use_ssl = true;
-        case 'l':
-            if(++i < argc) initialize_logging(argv[i]);
-            break;
-        default:
-            eprint("usage: ircl [-h host] [-p port] [-s] [-l log file] [-n nick] [-k password] [-v]\n");
-        }
-    }
-    if (!log_file_path) {
-        initialize_logging(NULL);
-    }
-
-    initialize_readline();
-    /* init */
-    login();
-
-    for(;;) { /* main loop */
-        FD_ZERO(&rd);
-        FD_SET(0, &rd);
-        FD_SET(fileno(srv), &rd);
-        i = select(fileno(srv) + 1, &rd, 0, 0, &tv);
-        tv.tv_sec = 120; /* fuckin linux resets this */
-        tv.tv_usec = 0; /* fuckin linux resets this */
-        if(i < 0) {
-            if (!(errno == EINTR || errno == EAGAIN)) {
-                eprint_reconnect("ircl: error on select():");
-            }
-            continue;
-        }
-        else if(i == 0) {
-            if(time(NULL) - trespond >= 300)
-                eprint_reconnect("ircl shutting down: parse timeout\n");
-            sout("PING %s", host);
-            continue;
-        }
-        if(FD_ISSET(fileno(srv), &rd)) {
-            if (use_ssl) {
-                char *cmd, *ptr, *end;
-                i = SSL_read(ssl, bufin, sizeof(bufin) - 1);
-                if (i <= 0 ) {
-                    eprint_reconnect("Unable to read over SSL (err=%d)\n", SSL_get_error(ssl, i));
-                    continue;
-                }
-                ptr = cmd = bufin;
-                end = bufin + i;
-                *end = '\0';
-                while(ptr < end) {
-                    if (*ptr == '\r') {
-                        *ptr = '\0';
-                        if (*(ptr + 1) != '\n') { // accept only CR as EOM
-                            parsesrv(cmd);
-                            cmd = ptr + 1;
-                        }
-                    }
-                    else if (*ptr == '\n') {
-                        *ptr = '\0';
-                        parsesrv(cmd);
-                        cmd = ptr + 1;
-                    } 
-                    ptr++;
-                }
-                if (cmd != ptr) {
-                    fprintf(stderr, "INCOMPLETE CMD: '%s'\n", cmd);
-                }
-            } else {
-                if(fgets(bufin, sizeof bufin, srv) == NULL) {
-                    eprint_reconnect("ircl: remote host closed connection\n");
-                    continue;
-                }
-                parsesrv(bufin);
-            }
-            trespond = time(NULL);
-        }
-        if(FD_ISSET(0, &rd)) {
-            rl_callback_read_char();
-        }
-    }
-    return 0;
-}
-
-int
 insert_nick(const char *nick) {
     int i = 0, next_available = -1;
 
@@ -1268,4 +1158,114 @@ load_usernames_file() {
         free(entp);
     }
     usernames[count] = NULL; /* sentinel */
+}
+
+int
+main(int argc, char *argv[]) {
+    int i, c;
+    time_t trespond = 0;
+    struct timeval tv = {120, 0};
+    const char *user = getenv("USER");
+    char bufin[4096];
+    fd_set rd;
+
+    strlcpy(default_nick, user ? user : "unknown", sizeof default_nick);
+    for(i = 1; i < argc; i++) {
+        c = argv[i][1];
+        if(argv[i][0] != '-' || argv[i][2])
+            c = -1;
+        switch(c) {
+        case 'h':
+            if(++i < argc) host = argv[i];
+            break;
+        case 'p':
+            if(++i < argc) port = argv[i];
+            break;
+        case 'n':
+            if(++i < argc) strlcpy(default_nick, argv[i], sizeof default_nick);
+            break;
+        case 'k':
+            if(++i < argc) password = argv[i];
+            break;
+        case 'v':
+            eprint("ircl-"VERSION"\n");
+        case 's':
+            use_ssl = true;
+        case 'l':
+            if(++i < argc) initialize_logging(argv[i]);
+            break;
+        default:
+            eprint("usage: ircl [-h host] [-p port] [-s] [-l log file] [-n nick] [-k password] [-v]\n");
+        }
+    }
+    if (!log_file_path) {
+        initialize_logging(NULL);
+    }
+
+    initialize_readline();
+    /* init */
+    login();
+
+    for(;;) { /* main loop */
+        FD_ZERO(&rd);
+        FD_SET(0, &rd);
+        FD_SET(fileno(srv), &rd);
+        i = select(fileno(srv) + 1, &rd, 0, 0, &tv);
+        tv.tv_sec = 120; /* fuckin linux resets this */
+        tv.tv_usec = 0; /* fuckin linux resets this */
+        if(i < 0) {
+            if (!(errno == EINTR || errno == EAGAIN)) {
+                eprint_reconnect("ircl: error on select():");
+            }
+            continue;
+        }
+        else if(i == 0) {
+            if(time(NULL) - trespond >= 300)
+                eprint_reconnect("ircl shutting down: parse timeout\n");
+            sout("PING %s", host);
+            continue;
+        }
+        if(FD_ISSET(fileno(srv), &rd)) {
+            if (use_ssl) {
+                char *cmd, *ptr, *end;
+                i = SSL_read(ssl, bufin, sizeof(bufin) - 1);
+                if (i <= 0 ) {
+                    eprint_reconnect("Unable to read over SSL (err=%d)\n", SSL_get_error(ssl, i));
+                    continue;
+                }
+                ptr = cmd = bufin;
+                end = bufin + i;
+                *end = '\0';
+                while(ptr < end) {
+                    if (*ptr == '\r') {
+                        *ptr = '\0';
+                        if (*(ptr + 1) != '\n') { // accept only CR as EOM
+                            parsesrv(cmd);
+                            cmd = ptr + 1;
+                        }
+                    }
+                    else if (*ptr == '\n') {
+                        *ptr = '\0';
+                        parsesrv(cmd);
+                        cmd = ptr + 1;
+                    } 
+                    ptr++;
+                }
+                if (cmd != ptr) {
+                    fprintf(stderr, "INCOMPLETE CMD: '%s'\n", cmd);
+                }
+            } else {
+                if(fgets(bufin, sizeof bufin, srv) == NULL) {
+                    eprint_reconnect("ircl: remote host closed connection\n");
+                    continue;
+                }
+                parsesrv(bufin);
+            }
+            trespond = time(NULL);
+        }
+        if(FD_ISSET(0, &rd)) {
+            rl_callback_read_char();
+        }
+    }
+    return 0;
 }
