@@ -7,9 +7,11 @@ static char bufout[4096];
 static char default_channel[256];
 static char default_nick[MAX_NICK_LENGTH];
 static FILE *srv = NULL;
-static char **all_nicks = NULL;
-static int all_nicks_size= 0;
-static int nick_count = 0;
+static LIST_HEAD(nick_list_head, nick_entry) nick_list_head = LIST_HEAD_INITIALIZER(nick_list_head);
+struct nick_entry {
+    LIST_ENTRY(nick_entry) entries;
+    char *nick;
+};
 static int is_away = 0;
 static int previous_prompt_len = 0;
 static const char *active_nicks[ACTIVE_NICKS_QUEUE_SIZE];
@@ -778,43 +780,25 @@ login() {
 
 int
 insert_nick(const char *nick) {
-    int i = 0, next_available = -1;
+    struct nick_entry *nick_ent;
 
-    if (nick_count == all_nicks_size) {
-        int new_sz = all_nicks_size + 100;
-        all_nicks = recallocarray(all_nicks, all_nicks_size, new_sz, sizeof(char*));
-        if (all_nicks == NULL) {
-            err(1, NULL);
-        }
-        all_nicks_size = new_sz;
-    }
+    remove_nick(nick);  /* put nick at head of list */
 
-    for (i=0; i<all_nicks_size; i++) {
-        if (all_nicks[i] == NULL) {
-            next_available = i;
-        } else if (strcasecmp(all_nicks[i], nick) == 0) {
-            /* duplicate found, so skip */
-            return 0;
-        }   
-    }
-
-    assert(next_available > -1);
-
-    all_nicks[next_available] = strdup(nick);
-    nick_count++;
+    nick_ent = malloc(sizeof(struct nick_entry));
+    nick_ent->nick = strdup(nick);
+    LIST_INSERT_HEAD(&nick_list_head, nick_ent, entries);
     return 1;
 }
 
 int
 remove_nick(const char *nick) {
-    int i;
+    struct nick_entry *nick_ent;
 
-    for (i=0; i<all_nicks_size; i++) {
-        if (all_nicks[i] && strcasecmp(all_nicks[i], nick) == 0) {
-            free(all_nicks[i]);
-            all_nicks[i] = NULL;
-            nick_count--;
-            assert(nick_count >= 0);
+    LIST_FOREACH(nick_ent, &nick_list_head, entries) {
+        if (strcasecmp(nick_ent->nick, nick) == 0) {
+            LIST_REMOVE(nick_ent, entries);
+            free(nick_ent->nick);
+            free(nick_ent);
             return 1;
         }
     }
@@ -823,18 +807,13 @@ remove_nick(const char *nick) {
 
 void
 remove_all_nicks() {
-    int i;
-    for (i=0; i<all_nicks_size; i++) {
-        if (all_nicks[i]) {
-            free(all_nicks[i]);
-            all_nicks[i] = NULL;
-            nick_count--;
-            assert(nick_count >= 0);
-        }
+    struct nick_entry *nick_ent;
+    while (!LIST_EMPTY(&nick_list_head)) {
+        nick_ent = LIST_FIRST(&nick_list_head);
+        LIST_REMOVE(nick_ent, entries);
+        free(nick_ent->nick);
+        free(nick_ent);
     }
-    free(all_nicks);
-    all_nicks = NULL;
-    all_nicks_size = 0;
 }
 
 void
@@ -1003,20 +982,21 @@ username_generator(const char *text, int state) {
 
 static char *
 nick_generator(const char *text, int state) {
-  static int list_index = 0, len = 0;
+  static struct nick_entry *nick_ent;
+  static int len = 0;
   const char *fullnick;
   const char *name;
 
   if (!state) {
-      list_index = 0;
-      len = strlen (text);
+      nick_ent = LIST_FIRST(&nick_list_head);
+      len = strlen(text);
   }
 
-  for (; list_index < all_nicks_size;) {
-      name = all_nicks[list_index];
+  while (nick_ent != NULL) {
+      name = nick_ent->nick;
       fullnick = name;
-      
-      list_index++;
+      nick_ent = LIST_NEXT(nick_ent, entries);
+
       if (name && !starts_with_symbol(text) && starts_with_symbol(name)) {
           /* skip prefixes like @person and #jerks */
           name++;
@@ -1168,6 +1148,8 @@ main(int argc, char *argv[]) {
     const char *user = getenv("USER");
     char bufin[4096];
     fd_set rd;
+
+    LIST_INIT(&nick_list_head);
 
     strlcpy(default_nick, user ? user : "unknown", sizeof default_nick);
     for(i = 1; i < argc; i++) {
