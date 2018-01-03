@@ -1184,6 +1184,9 @@ main(int argc, char *argv[]) {
         initialize_logging(NULL);
     }
 
+#ifdef __OpenBSD__
+    pledge("stdio tty rpath cpath wpath inet", NULL);
+#endif
     initialize_readline();
     /* init */
     login();
