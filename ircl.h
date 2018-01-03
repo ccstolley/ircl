@@ -20,6 +20,8 @@
 
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
+#include <openssl/x509v3.h>
+
 
 
 #define UNUSED(x) (void)(x)
@@ -66,7 +68,7 @@ static void add_channel(const char *);
 static void remove_channel(const char *);
 static void remove_all_channels();
 static const char* channel_color(const char *);
-static void ssl_connect(const int);
+static void ssl_connect(const int, const char *);
 static void add_msg_history(const char *, const char *);
 static void logmsg(const char *msg, const int len);
 static void login();

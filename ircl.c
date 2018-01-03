@@ -74,27 +74,45 @@ dial(char *host, char *port) {
 }
 
 static void
-ssl_connect(const int sock) {
+ssl_connect(const int sock, const char* host) {
     SSL_CTX *ctx;
+    X509 *x509;
     const SSL_METHOD *method;
     int result = 0;
 
     SSL_library_init();
     SSL_load_error_strings(); 
-    method = TLSv1_2_client_method();
+    method = TLS_client_method();
     ctx = SSL_CTX_new(method); 
     if (ctx  == NULL)
-        eprint("Unable to initialize SSL context");
+        eprint("Unable to initialize SSL context\n");
+    SSL_CTX_set_default_verify_paths(ctx);
     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
     ssl = SSL_new(ctx);
     if (ssl  == NULL)
-        eprint("Unable to initialize SSL struct");
+        eprint("Unable to initialize SSL struct\n");
     SSL_set_fd(ssl, sock);
 
     if (1 != SSL_connect(ssl)) {
-        eprint("Unable to connect over SSL (err=%d)",
+        eprint("Unable to connect over SSL (err=%d)\n",
                SSL_get_error(ssl, result));
     }
+
+    if (NULL == (x509 = SSL_get_peer_certificate(ssl))) {
+        eprint("Unable to get peer cert (err=%d)\n",
+               SSL_get_error(ssl, result));
+    }
+
+    if (1 != X509_check_host(x509, host, strlen(host), 0, NULL)) {
+        eprint("Server cert CN failed to match hostname (%s)\n", host);
+    }
+
+    if (X509_V_OK != (result = SSL_get_verify_result(ssl))) {
+        eprint("Unable to verify peer cert (err=%d)\n", result);
+    }
+
+    X509_free(x509);
     SSL_CTX_free(ctx);
 }
 
@@ -762,7 +780,7 @@ login() {
     }
     i = dial(host, port);
     if (use_ssl) {
-        ssl_connect(i);
+        ssl_connect(i, host);
     }
     srv = fdopen(i, "r+");
     /* login */
@@ -1146,7 +1164,7 @@ main(int argc, char *argv[]) {
     time_t trespond = 0;
     struct timeval tv = {120, 0};
     const char *user = getenv("USER");
-    char bufin[4096];
+    char bufin[65536];
     fd_set rd;
 
     LIST_INIT(&nick_list_head);
@@ -1185,7 +1203,7 @@ main(int argc, char *argv[]) {
     }
 
 #ifdef __OpenBSD__
-    pledge("stdio tty rpath cpath wpath inet", NULL);
+    pledge("dns stdio tty rpath cpath wpath inet", NULL);
 #endif
     initialize_readline();
     /* init */
