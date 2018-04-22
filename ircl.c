@@ -82,7 +82,7 @@ ssl_connect(const int sock, const char* host) {
 
     SSL_library_init();
     SSL_load_error_strings(); 
-    method = TLS_client_method();
+    method = SSLv23_client_method();
     ctx = SSL_CTX_new(method); 
     if (ctx  == NULL)
         eprint("Unable to initialize SSL context\n");
