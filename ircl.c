@@ -636,7 +636,8 @@ parsesrv(char *cmd) {
         }
         insert_nick(usr);
     } else if(!strcmp("PING", cmd)) {
-        sout("PONG %s", txt);
+        char *host = (*txt) ? txt : par;
+        sout("PONG %s", host);
     } else {
         if (strcmp(cmd, "JOIN") == 0) {
             char * channel = (*txt) ? txt : par;
