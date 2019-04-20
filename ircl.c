@@ -1204,7 +1204,21 @@ main(int argc, char *argv[]) {
     }
 
 #ifdef __OpenBSD__
-    pledge("dns stdio tty rpath cpath wpath inet", NULL);
+    if (pledge("dns stdio tty rpath cpath wpath inet unveil", NULL) == -1) {
+        eprint("Pledge:%s", strerror(errno));
+    }
+    if (unveil(log_file_path, "rwc") == -1) {
+        eprint("unveil: %s", strerror(errno));
+    }
+    if (unveil("/etc/ssl", "r") == -1) {
+        eprint("unveil: %s", strerror(errno));
+    }
+    if (unveil("/etc/hosts", "r") == -1) {
+        eprint("unveil: %s", strerror(errno));
+    }
+    if (pledge("dns stdio tty rpath cpath wpath inet", NULL) == -1) {
+        eprint("Pledge:%s", strerror(errno));
+    }
 #endif
     initialize_readline();
     /* init */
