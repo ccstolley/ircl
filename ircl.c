@@ -1203,6 +1203,7 @@ main(int argc, char *argv[]) {
         initialize_logging(NULL);
     }
 
+    initialize_readline();
 #ifdef __OpenBSD__
     if (pledge("dns stdio tty rpath cpath wpath inet unveil", NULL) == -1) {
         eprint("Pledge:%s", strerror(errno));
@@ -1220,7 +1221,6 @@ main(int argc, char *argv[]) {
         eprint("Pledge:%s", strerror(errno));
     }
 #endif
-    initialize_readline();
     /* init */
     login();
 
