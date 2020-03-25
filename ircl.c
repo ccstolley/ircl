@@ -35,13 +35,15 @@ eprint(const char *fmt, ...) {
 static void
 eprint_reconnect(const char *fmt, ...) {
     va_list ap;
+    int len;
 
     va_start(ap, fmt);
-    vsnprintf(bufout, sizeof bufout, fmt, ap);
+    len = vsnprintf(bufout, sizeof bufout, fmt, ap);
     va_end(ap);
     fprintf(stderr, "%s", bufout);
     if(fmt[0] && fmt[strlen(fmt) - 1] == ':')
         fprintf(stderr, " %s\n", strerror(errno));
+    logmsg(bufout, len);
     sleep(1);
     pout("ircl", "Reconnecting to %s:%s", host, port);
     remove_all_nicks();
@@ -1162,13 +1164,14 @@ load_usernames_file() {
 int
 main(int argc, char *argv[]) {
     int i, c;
-    time_t trespond = 0;
+    struct timespec trespond = {0};
     struct timeval tv = {120, 0};
     const char *user = getenv("USER");
-    char bufin[65536];
+    char bufin[131072];
     fd_set rd;
 
     LIST_INIT(&nick_list_head);
+    clock_gettime(CLOCK_MONOTONIC, &trespond);
 
     strlcpy(default_nick, user ? user : "unknown", sizeof default_nick);
     for(i = 1; i < argc; i++) {
@@ -1238,8 +1241,12 @@ main(int argc, char *argv[]) {
             continue;
         }
         else if(i == 0) {
-            if(time(NULL) - trespond >= 300)
+            struct timespec tnow = {0};
+            clock_gettime(CLOCK_MONOTONIC, &tnow);
+
+            if ((tnow.tv_sec - trespond.tv_sec) >= 300) {
                 eprint_reconnect("ircl shutting down: parse timeout\n");
+            }
             sout("PING %s", host);
             continue;
         }
@@ -1279,7 +1286,7 @@ main(int argc, char *argv[]) {
                 }
                 parsesrv(bufin);
             }
-            trespond = time(NULL);
+            clock_gettime(CLOCK_MONOTONIC, &trespond);
         }
         if(FD_ISSET(0, &rd)) {
             rl_callback_read_char();
