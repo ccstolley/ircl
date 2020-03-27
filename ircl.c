@@ -1106,9 +1106,17 @@ static void load_usernames_file() {
   usernames[count] = NULL; /* sentinel */
 }
 
+/* true when ts was at least secs seconds ago */
+bool seconds_ago(struct timespec *ts, time_t secs) {
+  struct timespec tnow = {0};
+  clock_gettime(CLOCK_MONOTONIC, &tnow);
+  return ((tnow.tv_sec - ts->tv_sec) >= secs);
+}
+
 int main(int argc, char *argv[]) {
   int i, c;
   struct timespec trespond = {0};
+  struct timespec last_ping = {0};
   struct timeval tv = {120, 0};
   const char *user = getenv("USER");
   char bufin[131072];
@@ -1116,6 +1124,7 @@ int main(int argc, char *argv[]) {
 
   LIST_INIT(&nick_list_head);
   clock_gettime(CLOCK_MONOTONIC, &trespond);
+  last_ping = trespond;
 
   strlcpy(default_nick, user ? user : "unknown", sizeof default_nick);
   for (i = 1; i < argc; i++) {
@@ -1167,6 +1176,7 @@ int main(int argc, char *argv[]) {
   if (unveil("/etc/ssl", "r") == -1) {
     eprint("unveil: %s", strerror(errno));
   }
+
   if (unveil("/etc/hosts", "r") == -1) {
     eprint("unveil: %s", strerror(errno));
   }
@@ -1190,13 +1200,17 @@ int main(int argc, char *argv[]) {
       }
       continue;
     } else if (i == 0) {
-      struct timespec tnow = {0};
-      clock_gettime(CLOCK_MONOTONIC, &tnow);
-
-      if ((tnow.tv_sec - trespond.tv_sec) >= 300) {
-        eprint_reconnect("ircl shutting down: parse timeout\n");
+      if (seconds_ago(&trespond, 120) && seconds_ago(&last_ping, 240)) {
+        sout("PING %s", host);
+        clock_gettime(CLOCK_MONOTONIC, &last_ping);
+      } else if (seconds_ago(&trespond, 300)) {
+        struct timespec now = {0};
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        eprint_reconnect("ircl shutting down: parse timeout (last heard from "
+                         "%li secs ago, last ping attempt %li secs ago)\n",
+                         now.tv_sec - trespond.tv_sec,
+                         now.tv_sec - last_ping.tv_sec);
       }
-      sout("PING %s", host);
       continue;
     }
     if (FD_ISSET(fileno(srv), &rd)) {
