@@ -160,12 +160,14 @@ static void initialize_logging(const char *log_file) {
              default_name, default_nick);
   } else {
     if (log_file[0] != '/') {
-      base_path = getcwd(NULL, 0);
+      char base_path[PATH_MAX] = {0};
+      if (!getcwd(base_path, sizeof(base_path))) {
+          eprint("Unable to get current working directory: %s", strerror(errno));
+      }
       log_file_path_len = strlen(base_path) + strlen(log_file) + 4;
       log_file_path = calloc(log_file_path_len, sizeof(char));
       snprintf((char *)log_file_path, log_file_path_len, "%s/%s", base_path,
                log_file);
-      free(base_path);
     } else {
       log_file_path = strdup(log_file);
     }
@@ -173,10 +175,8 @@ static void initialize_logging(const char *log_file) {
   printf("Logging to %s\n", log_file_path);
   if (0 != access(log_file_path, R_OK | W_OK)) {
     if (errno == ENOENT) {
-      char *lfp_dup = strdup(log_file_path);
-      const char *dir_path = dirname(lfp_dup);
+      const char *dir_path = dirname(log_file_path);
       if (dir_path && (0 == access(dir_path, R_OK | W_OK))) {
-        free(lfp_dup);
         return;
       }
     }
@@ -1150,8 +1150,10 @@ int main(int argc, char *argv[]) {
       break;
     case 'v':
       eprint("ircl-" VERSION "\n");
+      break;
     case 's':
       use_ssl = true;
+      break;
     case 'l':
       if (++i < argc)
         initialize_logging(argv[i]);
