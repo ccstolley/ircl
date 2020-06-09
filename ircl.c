@@ -113,11 +113,21 @@ static void ssl_connect(const int sock, const char *host) {
   SSL_CTX_free(ctx);
 }
 
-#define strlcpy _strlcpy
-static void strlcpy(char *to, const char *from, int l) {
-  memccpy(to, from, '\0', l);
-  to[l - 1] = '\0';
+#ifdef __linux__
+static size_t strlcpy(char *to, const char *from, int l) {
+  return snprintf(to, l, "%s", from);
 }
+
+#define dirname _dirname
+static char *dirname(const char *path) {
+  static char pbuf[PATH_MAX];
+  if (strlcpy(pbuf, path, sizeof(pbuf)) >= sizeof(pbuf)) {
+    errno = ENAMETOOLONG;
+    return NULL;
+  }
+  return _dirname(pbuf);
+}
+#endif
 
 static char *eat(char *s, int (*p)(int), int r) {
   while (*s != '\0' && p(*s) == r)
@@ -162,7 +172,7 @@ static void initialize_logging(const char *log_file) {
     if (log_file[0] != '/') {
       char base_path[PATH_MAX] = {0};
       if (!getcwd(base_path, sizeof(base_path))) {
-          eprint("Unable to get current working directory: %s", strerror(errno));
+        eprint("Unable to get current working directory: %s", strerror(errno));
       }
       log_file_path_len = strlen(base_path) + strlen(log_file) + 4;
       log_file_path = calloc(log_file_path_len, sizeof(char));
